@@ -69,6 +69,7 @@ pnpm -C apps/mobile start -- --clear
 
 ## Notes
 - If you run the mobile app on a device, set `EXPO_PUBLIC_API_URL` to your machine's LAN IP.
+- For device testing, run the API with `--host 0.0.0.0` so it listens on your LAN interface.
 - The dev server defaults to port 5001. Set `VITE_API_URL` or `EXPO_PUBLIC_API_URL` if you need a different port.
 - The API health endpoint is available at `/health` and `/api/v1/health`.
 # nush

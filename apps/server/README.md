@@ -9,7 +9,7 @@ FLASK_APP=app:create_app flask db upgrade
 
 ## Development
 ```bash
-FLASK_APP=app:create_app flask run --port 5001
+FLASK_APP=app:create_app flask run --host 0.0.0.0 --port 5001
 ```
 
 ## Production

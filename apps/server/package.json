@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "FLASK_APP=app:create_app flask run --port 5001",
+    "dev": "FLASK_APP=app:create_app flask run --host 0.0.0.0 --port 5001",
     "build": "echo \"no build\"",
     "lint": "python -m ruff check app",
     "test": "echo \"no tests\""
