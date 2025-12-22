@@ -1,5 +1,7 @@
 from enum import Enum
 
+import bcrypt
+
 from sqlalchemy import CheckConstraint, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import validates
@@ -148,6 +150,13 @@ class TransferStatus(str, Enum):
     CANCELED = "canceled"
 
 
+class TransferType(str, Enum):
+    RESTAURANT_PAYOUT = "restaurant_payout"
+    COURIER_PAYOUT = "courier_payout"
+    PLATFORM_FEE_SHARE = "platform_fee_share"
+    REFUND_REVERSAL = "refund_reversal"
+
+
 class RefundStatus(str, Enum):
     PENDING = "pending"
     SUCCEEDED = "succeeded"
@@ -203,6 +212,20 @@ class User(BaseModel):
     addresses = db.relationship("Address", back_populates="user")
     notifications = db.relationship("Notification", back_populates="user")
     audit_logs = db.relationship("AuditLog", back_populates="actor")
+    orders = db.relationship("Order", back_populates="customer")
+    memberships = db.relationship("CustomerMembership", back_populates="customer")
+    restaurant_likes = db.relationship(
+        "RestaurantLike", back_populates="user", cascade="all, delete-orphan"
+    )
+    liked_restaurants = db.relationship(
+        "Restaurant", secondary="restaurant_likes", viewonly=True
+    )
+    order_receipts = db.relationship(
+        "OrderReceipt", back_populates="customer", cascade="all, delete-orphan"
+    )
+    membership_receipts = db.relationship(
+        "MembershipReceipt", back_populates="customer", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("email = lower(email)", name="ck_users_email_lower"),
@@ -213,6 +236,15 @@ class User(BaseModel):
     @validates("email")
     def _normalize_email(self, key, value):
         return normalize_lower(value)
+
+    def set_password(self, password: str) -> None:
+        password_bytes = password.encode("utf-8")
+        self.password_hash = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+
+    def check_password(self, password: str) -> bool:
+        if not self.password_hash:
+            return False
+        return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
 
     def __repr__(self) -> str:
         return f"<User {self.id} {self.email}>"
@@ -252,7 +284,7 @@ class RestaurantOwnerProfile(BaseModel):
     stripe_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("stripe_accounts.id"))
 
     user = db.relationship("User", back_populates="owner_profile")
-    stripe_account = db.relationship("StripeAccount")
+    stripe_account = db.relationship("StripeAccount", foreign_keys=[stripe_account_id])
 
 
 class Role(BaseModel):
@@ -318,8 +350,8 @@ class Restaurant(BaseModel):
     stripe_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("stripe_accounts.id"))
 
     owner = db.relationship("User")
-    address = db.relationship("Address")
-    stripe_account = db.relationship("StripeAccount")
+    address = db.relationship("Address", foreign_keys=[address_id])
+    stripe_account = db.relationship("StripeAccount", foreign_keys=[stripe_account_id])
     configuration = db.relationship(
         "RestaurantConfiguration", back_populates="restaurant", uselist=False, cascade="all, delete-orphan"
     )
@@ -332,6 +364,11 @@ class Restaurant(BaseModel):
     user_roles = db.relationship("UserRole", back_populates="restaurant")
     orders = db.relationship("Order", back_populates="restaurant")
     delivery_tasks = db.relationship("DeliveryTask", back_populates="restaurant")
+    likes = db.relationship("RestaurantLike", back_populates="restaurant", cascade="all, delete-orphan")
+    liked_by = db.relationship("User", secondary="restaurant_likes", viewonly=True)
+    order_allocations = db.relationship(
+        "OrderRestaurantAllocation", back_populates="restaurant", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Restaurant {self.id} {self.name}>"
@@ -549,18 +586,44 @@ class Address(BaseModel):
     user = db.relationship("User", back_populates="addresses")
 
 
+class RestaurantLike(BaseModel):
+    __tablename__ = "restaurant_likes"
+    __table_args__ = (UniqueConstraint("user_id", "restaurant_id", name="uq_restaurant_likes"),)
+
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
+    restaurant_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True
+    )
+
+    user = db.relationship("User", back_populates="restaurant_likes")
+    restaurant = db.relationship("Restaurant", back_populates="likes")
+
+
 class Cart(BaseModel):
     __tablename__ = "carts"
     __table_args__ = (Index("ix_carts_customer_active", "customer_id", "restaurant_id"),)
 
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), index=True)
     restaurant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True)
     order_type = db.Column(db.Enum(OrderType, name="order_type"), nullable=False)
     notes = db.Column(db.Text)
+    promo_id = db.Column(UUID(as_uuid=True), db.ForeignKey("promotions.id"), index=True)
+    membership_id = db.Column(UUID(as_uuid=True), db.ForeignKey("customer_memberships.id"), index=True)
+    subtotal_cents = db.Column(db.Integer, nullable=False, default=0)
+    tax_cents = db.Column(db.Integer, nullable=False, default=0)
+    fee_cents = db.Column(db.Integer, nullable=False, default=0)
+    discount_cents = db.Column(db.Integer, nullable=False, default=0)
+    total_cents = db.Column(db.Integer, nullable=False, default=0)
 
     customer = db.relationship("User")
-    restaurant = db.relationship("Restaurant")
+    restaurant = db.relationship("Restaurant", foreign_keys=[restaurant_id])
     items = db.relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
+    promo = db.relationship("Promotion")
+    membership = db.relationship("CustomerMembership")
+
+    @validates("subtotal_cents", "tax_cents", "fee_cents", "discount_cents", "total_cents")
+    def _validate_amounts(self, key, value):
+        return validate_non_negative(value, key)
 
 
 class CartItem(BaseModel):
@@ -569,6 +632,8 @@ class CartItem(BaseModel):
 
     cart_id = db.Column(UUID(as_uuid=True), db.ForeignKey("carts.id"), nullable=False, index=True)
     menu_item_id = db.Column(UUID(as_uuid=True), db.ForeignKey("menu_items.id"), index=True)
+    name_snapshot = db.Column(db.String(120), nullable=False)
+    base_price_cents = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     notes = db.Column(db.Text)
 
@@ -576,7 +641,7 @@ class CartItem(BaseModel):
     menu_item = db.relationship("MenuItem")
     options = db.relationship("CartItemOption", back_populates="cart_item", cascade="all, delete-orphan")
 
-    @validates("quantity")
+    @validates("quantity", "base_price_cents")
     def _validate_quantity(self, key, value):
         return validate_non_negative(value, key)
 
@@ -605,6 +670,7 @@ class Order(BaseModel):
     __table_args__ = (
         Index("ix_orders_created_at", "created_at"),
         Index("ix_orders_status", "status"),
+        Index("ix_orders_restaurant_created_at", "restaurant_id", "created_at"),
     )
 
     customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
@@ -621,7 +687,7 @@ class Order(BaseModel):
     membership_id = db.Column(UUID(as_uuid=True), db.ForeignKey("customer_memberships.id"), index=True)
     placed_at = db.Column(db.DateTime(timezone=True))
 
-    customer = db.relationship("User")
+    customer = db.relationship("User", back_populates="orders")
     restaurant = db.relationship("Restaurant", back_populates="orders")
     promo = db.relationship("Promotion")
     membership = db.relationship("CustomerMembership")
@@ -636,6 +702,12 @@ class Order(BaseModel):
         "OrderAdjustment", back_populates="order", cascade="all, delete-orphan"
     )
     delivery_task = db.relationship("DeliveryTask", back_populates="order", uselist=False)
+    receipt = db.relationship(
+        "OrderReceipt", back_populates="order", uselist=False, cascade="all, delete-orphan"
+    )
+    allocations = db.relationship(
+        "OrderRestaurantAllocation", back_populates="order", cascade="all, delete-orphan"
+    )
 
     @validates("subtotal_cents", "tax_cents", "fee_cents", "discount_cents", "total_cents")
     def _validate_amounts(self, key, value):
@@ -659,6 +731,29 @@ class OrderItem(BaseModel):
     options = db.relationship("OrderItemOption", back_populates="order_item", cascade="all, delete-orphan")
 
     @validates("base_price_cents", "total_price_cents", "quantity")
+    def _validate_amounts(self, key, value):
+        return validate_non_negative(value, key)
+
+
+class OrderRestaurantAllocation(BaseModel):
+    __tablename__ = "order_restaurant_allocations"
+    __table_args__ = (
+        UniqueConstraint("order_id", "restaurant_id", name="uq_order_restaurant_allocations"),
+    )
+
+    order_id = db.Column(UUID(as_uuid=True), db.ForeignKey("orders.id"), nullable=False, index=True)
+    restaurant_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True
+    )
+    subtotal_cents = db.Column(db.Integer, nullable=False, default=0)
+    tax_cents = db.Column(db.Integer, nullable=False, default=0)
+    fee_cents = db.Column(db.Integer, nullable=False, default=0)
+    payout_cents = db.Column(db.Integer, nullable=False, default=0)
+
+    order = db.relationship("Order", back_populates="allocations")
+    restaurant = db.relationship("Restaurant", back_populates="order_allocations")
+
+    @validates("subtotal_cents", "tax_cents", "fee_cents", "payout_cents")
     def _validate_amounts(self, key, value):
         return validate_non_negative(value, key)
 
@@ -782,7 +877,7 @@ class RoutePlan(BaseModel):
     status = db.Column(db.String(64))
     metadata_json = db.Column("metadata", JSONB, default=dict)
 
-    restaurant = db.relationship("Restaurant")
+    restaurant = db.relationship("Restaurant", foreign_keys=[restaurant_id])
     courier = db.relationship("User")
 
 
@@ -827,10 +922,16 @@ class PaymentMethod(BaseModel):
 
 class PaymentIntentRecord(BaseModel):
     __tablename__ = "payment_intent_records"
-    __table_args__ = (UniqueConstraint("stripe_payment_intent_id", name="uq_payment_intent_id"),)
+    __table_args__ = (
+        UniqueConstraint("stripe_payment_intent_id", name="uq_payment_intent_id"),
+        Index("ix_payment_intents_restaurant_created_at", "restaurant_id", "created_at"),
+    )
 
     stripe_payment_intent_id = db.Column(db.String(255), nullable=False)
     order_id = db.Column(UUID(as_uuid=True), db.ForeignKey("orders.id"), nullable=False, index=True)
+    restaurant_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True
+    )
     amount_cents = db.Column(db.Integer, nullable=False)
     currency = db.Column(db.String(3), nullable=False)
     status = db.Column(db.Enum(PaymentIntentStatus, name="payment_intent_status"), nullable=False)
@@ -838,6 +939,7 @@ class PaymentIntentRecord(BaseModel):
     error = db.Column(JSONB)
 
     order = db.relationship("Order")
+    restaurant = db.relationship("Restaurant")
 
     @validates("amount_cents")
     def _validate_amount(self, key, value):
@@ -852,11 +954,15 @@ class ChargeRecord(BaseModel):
     payment_intent_id = db.Column(
         UUID(as_uuid=True), db.ForeignKey("payment_intent_records.id"), nullable=False, index=True
     )
+    restaurant_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True
+    )
     amount_cents = db.Column(db.Integer, nullable=False)
     status = db.Column(db.Enum(ChargeStatus, name="charge_status"), nullable=False)
     refunded_amount_cents = db.Column(db.Integer, default=0)
 
     payment_intent = db.relationship("PaymentIntentRecord")
+    restaurant = db.relationship("Restaurant")
 
     @validates("amount_cents", "refunded_amount_cents")
     def _validate_amount(self, key, value):
@@ -882,18 +988,67 @@ class RefundRecord(BaseModel):
         return validate_non_negative(value, key)
 
 
+class OrderReceipt(BaseModel):
+    __tablename__ = "order_receipts"
+    __table_args__ = (UniqueConstraint("order_id", name="uq_order_receipts_order"),)
+
+    order_id = db.Column(UUID(as_uuid=True), db.ForeignKey("orders.id"), nullable=False, index=True)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
+    payment_intent_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("payment_intent_records.id"), index=True
+    )
+    charge_id = db.Column(UUID(as_uuid=True), db.ForeignKey("charge_records.id"), index=True)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), nullable=False, default="USD")
+    status = db.Column(db.Enum(ChargeStatus, name="receipt_status"), nullable=False)
+    provider = db.Column(db.String(64))
+    provider_receipt_id = db.Column(db.String(255))
+    receipt_url = db.Column(db.String(255))
+    issued_at = db.Column(db.DateTime(timezone=True))
+    metadata_json = db.Column("metadata", JSONB, default=dict)
+
+    order = db.relationship("Order", back_populates="receipt")
+    customer = db.relationship("User", back_populates="order_receipts")
+    payment_intent = db.relationship("PaymentIntentRecord")
+    charge = db.relationship("ChargeRecord")
+
+    @validates("amount_cents")
+    def _validate_amount(self, key, value):
+        return validate_non_negative(value, key)
+
+
 class TransferRecord(BaseModel):
     __tablename__ = "transfer_records"
-    __table_args__ = (UniqueConstraint("stripe_transfer_id", name="uq_transfer_id"),)
+    __table_args__ = (
+        UniqueConstraint("stripe_transfer_id", name="uq_transfer_id"),
+        UniqueConstraint(
+            "order_id",
+            "transfer_type",
+            "destination_stripe_account_id",
+            name="uq_transfer_order_type_destination",
+        ),
+    )
 
     stripe_transfer_id = db.Column(db.String(255), nullable=False)
-    destination_account_id = db.Column(db.String(255), nullable=False)
+    order_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("orders.id"), nullable=False, index=True
+    )
+    restaurant_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("restaurants.id"), nullable=False, index=True
+    )
+    destination_stripe_account_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("stripe_accounts.id"), nullable=False, index=True
+    )
     payout_id = db.Column(UUID(as_uuid=True), db.ForeignKey("payouts.id"), index=True)
     amount_cents = db.Column(db.Integer, nullable=False)
-    transfer_type = db.Column(db.String(64))
+    currency = db.Column(db.String(3), nullable=False, default="USD")
+    transfer_type = db.Column(db.Enum(TransferType, name="transfer_type"), nullable=False)
     status = db.Column(db.Enum(TransferStatus, name="transfer_status"), nullable=False)
 
     payout = db.relationship("Payout", back_populates="transfers")
+    order = db.relationship("Order")
+    restaurant = db.relationship("Restaurant")
+    destination_stripe_account = db.relationship("StripeAccount")
 
     @validates("amount_cents")
     def _validate_amount(self, key, value):
@@ -902,15 +1057,26 @@ class TransferRecord(BaseModel):
 
 class Payout(BaseModel):
     __tablename__ = "payouts"
-    __table_args__ = (Index("ix_payouts_status", "status"),)
+    __table_args__ = (
+        Index("ix_payouts_status", "status"),
+        CheckConstraint(
+            "(restaurant_id IS NOT NULL AND courier_id IS NULL) OR "
+            "(restaurant_id IS NULL AND courier_id IS NOT NULL)",
+            name="ck_payouts_one_owner",
+        ),
+    )
 
     stripe_payout_id = db.Column(db.String(255))
     start_at = db.Column(db.DateTime(timezone=True), nullable=False)
     end_at = db.Column(db.DateTime(timezone=True), nullable=False)
     total_amount_cents = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.Enum(PayoutStatus, name="payout_status"), nullable=False)
+    restaurant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("restaurants.id"), index=True)
+    courier_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), index=True)
 
     transfers = db.relationship("TransferRecord", back_populates="payout", cascade="all, delete-orphan")
+    restaurant = db.relationship("Restaurant")
+    courier = db.relationship("User")
 
     @validates("total_amount_cents")
     def _validate_amount(self, key, value):
@@ -1056,13 +1222,16 @@ class CustomerMembership(BaseModel):
     started_at = db.Column(db.DateTime(timezone=True), nullable=False)
     ends_at = db.Column(db.DateTime(timezone=True))
 
-    customer = db.relationship("User")
+    customer = db.relationship("User", back_populates="memberships")
     tier = db.relationship("MembershipTier")
     history = db.relationship(
         "MembershipHistory", back_populates="membership", cascade="all, delete-orphan"
     )
     subscription = db.relationship(
         "MembershipSubscription", back_populates="membership", uselist=False, cascade="all, delete-orphan"
+    )
+    receipts = db.relationship(
+        "MembershipReceipt", back_populates="membership", cascade="all, delete-orphan"
     )
 
 
@@ -1094,6 +1263,32 @@ class MembershipHistory(BaseModel):
     membership = db.relationship("CustomerMembership", back_populates="history")
     previous_tier = db.relationship("MembershipTier", foreign_keys=[previous_tier_id])
     new_tier = db.relationship("MembershipTier", foreign_keys=[new_tier_id])
+
+
+class MembershipReceipt(BaseModel):
+    __tablename__ = "membership_receipts"
+
+    membership_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("customer_memberships.id"), nullable=False, index=True
+    )
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
+    amount_cents = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), nullable=False, default="USD")
+    status = db.Column(db.Enum(ChargeStatus, name="membership_receipt_status"), nullable=False)
+    period_start = db.Column(db.DateTime(timezone=True))
+    period_end = db.Column(db.DateTime(timezone=True))
+    provider = db.Column(db.String(64))
+    provider_invoice_id = db.Column(db.String(255))
+    receipt_url = db.Column(db.String(255))
+    issued_at = db.Column(db.DateTime(timezone=True))
+    metadata_json = db.Column("metadata", JSONB, default=dict)
+
+    membership = db.relationship("CustomerMembership", back_populates="receipts")
+    customer = db.relationship("User", back_populates="membership_receipts")
+
+    @validates("amount_cents")
+    def _validate_amount(self, key, value):
+        return validate_non_negative(value, key)
 
 
 class Rating(BaseModel):

@@ -1,1 +1,6 @@
 Generic single-database configuration.
+
+Schema notes (pending Alembic migration):
+- carts.customer_id made nullable to allow guest carts (signed guest_cart_id cookie).
+- carts: add promo_id, membership_id, subtotal_cents, tax_cents, fee_cents, discount_cents, total_cents.
+- cart_items: add name_snapshot, base_price_cents for item snapshots.

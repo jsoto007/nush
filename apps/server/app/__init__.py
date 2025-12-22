@@ -1,9 +1,9 @@
 from dotenv import load_dotenv
 from flask import Flask
 
-from .app import api_bp
 from .config import Config
-from .extensions import cors, db, migrate
+from .extensions import cors, db, limiter, migrate
+from .routes import register_api_blueprints
 
 
 def _parse_origins(raw_origins: str):
@@ -31,6 +31,7 @@ def create_app():
         resources={r"/api/.*": {"origins": _parse_origins(app.config["CORS_ORIGINS"]) }},
         supports_credentials=True,
     )
+    limiter.init_app(app)
 
     from . import models  # noqa: F401
 
@@ -38,5 +39,5 @@ def create_app():
     def health():
         return {"status": "ok"}
 
-    app.register_blueprint(api_bp)
+    register_api_blueprints(app)
     return app
