@@ -1,0 +1,29 @@
+node_modules
+.pnpm-store
+.turbo
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache
+.venv
+
+# Builds
+/dist
+/build
+/.expo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

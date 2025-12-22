@@ -1,0 +1,29 @@
+[project]
+name = "nush-server"
+version = "0.1.0"
+description = "nush Flask API"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0.0",
+  "flask-sqlalchemy>=3.1.1",
+  "flask-migrate>=4.0.5",
+  "flask-cors>=4.0.0",
+  "python-dotenv>=1.0.1",
+  "gunicorn>=21.2.0",
+  "sqlalchemy>=2.0.0"
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6.2"]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]

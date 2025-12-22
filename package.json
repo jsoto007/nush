@@ -1,0 +1,19 @@
+{
+  "name": "nush",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:server": "turbo dev --filter=@repo/server",
+    "dev:web": "turbo dev --filter=@repo/web",
+    "dev:mobile": "turbo dev --filter=@repo/mobile",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "format": "prettier --write .",
+    "test": "turbo test"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.1"
+  }
+}
