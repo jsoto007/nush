@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useRestaurant } from "../hooks/useRestaurant";
 import { useCart } from "../context/CartContext";
 import { Star, Clock, MapPin, ChevronLeft, Plus, Info } from "lucide-react";
+import foodPlaceholder from "../assets/food-placeholder.svg";
 
 export const RestaurantDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -79,7 +80,7 @@ export const RestaurantDetails: React.FC = () => {
 
                     <div className="hidden h-32 w-48 overflow-hidden rounded-2xl bg-stone-100 md:block">
                         <img
-                            src={`https://source.unsplash.com/featured/?food,${restaurant.cuisines[0] || 'restaurant'}`}
+                            src={foodPlaceholder}
                             alt={restaurant.name}
                             className="h-full w-full object-cover"
                         />
@@ -130,12 +131,9 @@ export const RestaurantDetails: React.FC = () => {
                                         </div>
                                         <div className="ml-4 flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-50">
                                             <img
-                                                src={`https://source.unsplash.com/featured/?food,${item.name}`}
+                                                src={foodPlaceholder}
                                                 alt={item.name}
                                                 className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = "https://via.placeholder.com/150?text=Food";
-                                                }}
                                             />
                                             <button className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white text-stone-900 shadow-md transition hover:bg-stone-900 hover:text-white">
                                                 <Plus size={18} />

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="225" viewBox="0 0 400 225" role="img" aria-label="Food placeholder">
+  <rect width="400" height="225" fill="#f1f5f9" />
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    fill="#94a3b8"
+    font-family="Arial, sans-serif"
+    font-size="28"
+  >
+    Food
+  </text>
+</svg>

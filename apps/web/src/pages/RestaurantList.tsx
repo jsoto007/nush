@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useRestaurants } from "../hooks/useRestaurants";
+import foodPlaceholder from "../assets/food-placeholder.svg";
 import { Star, Clock, MapPin } from "lucide-react";
 
 export const RestaurantList: React.FC = () => {
@@ -27,15 +28,11 @@ export const RestaurantList: React.FC = () => {
                     className="group block overflow-hidden rounded-3xl border border-stone-200 bg-white transition hover:shadow-xl hover:shadow-stone-200/40"
                 >
                     <div className="aspect-video w-full bg-stone-100">
-                        {/* Placeholder for restaurant image */}
                         <div className="flex h-full w-full items-center justify-center text-stone-400">
                             <img
-                                src={`https://source.unsplash.com/featured/?food,${restaurant.cuisines[0] || 'restaurant'}`}
+                                src={foodPlaceholder}
                                 alt={restaurant.name}
                                 className="h-full w-full object-cover"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).src = "https://via.placeholder.com/400x225?text=Food";
-                                }}
                             />
                         </div>
                     </div>
