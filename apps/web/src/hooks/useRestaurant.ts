@@ -13,18 +13,18 @@ export const useRestaurant = (id: string) => {
         setLoading(true);
         try {
             const [resResponse, menuResponse] = await Promise.all([
-                api.get<{ restaurant: Restaurant }>(`/api/v1/restaurants/${id}`),
-                api.get<{ menu: Menu }>(`/api/v1/restaurants/${id}/menus/active`)
+                api.get<Restaurant>(`/api/v1/restaurants/${id}`),
+                api.get<Menu>(`/api/v1/restaurants/${id}/menu`)
             ]);
 
             if (resResponse.ok && resResponse.data) {
-                setRestaurant(resResponse.data.restaurant);
+                setRestaurant(resResponse.data);
             } else {
                 setError(resResponse.error || "Failed to fetch restaurant");
             }
 
             if (menuResponse.ok && menuResponse.data) {
-                setMenu(menuResponse.data.menu);
+                setMenu(menuResponse.data);
             } else {
                 // Not finding a menu might not be a hard error for the restaurant view
                 console.warn("Menu not found for restaurant:", id);

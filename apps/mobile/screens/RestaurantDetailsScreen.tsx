@@ -28,15 +28,15 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
         setLoading(true);
         try {
             const [resResponse, menuResponse] = await Promise.all([
-                api.get<{ restaurant: Restaurant }>(`/api/v1/restaurants/${id}`),
-                api.get<{ menu: Menu }>(`/api/v1/restaurants/${id}/menu`),
+                api.get<Restaurant>(`/api/v1/restaurants/${id}`),
+                api.get<Menu>(`/api/v1/restaurants/${id}/menu`),
             ]);
 
             if (resResponse.ok && resResponse.data) {
-                setRestaurant(resResponse.data.restaurant);
+                setRestaurant(resResponse.data);
             }
             if (menuResponse.ok && menuResponse.data) {
-                setMenu(menuResponse.data.menu);
+                setMenu(menuResponse.data);
             }
         } catch (err) {
             setError("Network error");
