@@ -30,3 +30,4 @@ nush_server.egg-info/SOURCES.txt
 nush_server.egg-info/dependency_links.txt
 nush_server.egg-info/requires.txt
 nush_server.egg-info/top_level.txt
+tests/test_routes_smoke.py

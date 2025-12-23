@@ -34,5 +34,4 @@ def api_health():
 
 
 def register_api_blueprints(app):
-    app.register_blueprint(api_bp, url_prefix="/api", name="api")
     app.register_blueprint(api_bp, url_prefix="/api/v1", name="api_v1")

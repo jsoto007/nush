@@ -901,7 +901,7 @@ class StripeAccount(BaseModel):
     restaurant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("restaurants.id"), index=True)
     courier_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), index=True)
 
-    restaurant = db.relationship("Restaurant")
+    restaurant = db.relationship("Restaurant", foreign_keys=[restaurant_id])
     courier = db.relationship("User")
 
 

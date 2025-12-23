@@ -2,7 +2,7 @@
 
 Base URL
 - Local: `http://localhost:5000`
-- Versioned prefix: `/api/v1`
+- Versioned prefix: `/api/v1` (non-versioned `/api` is not exposed)
 
 ## Endpoints
 

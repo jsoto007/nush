@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import random
+from datetime import datetime, timezone
 
 from faker import Faker
 
@@ -13,6 +14,7 @@ from app.models import (
     MembershipSource,
     MembershipStatus,
     MembershipTier,
+    MembershipReceipt,
     Menu,
     MenuCategory,
     MenuItem,
@@ -23,6 +25,7 @@ from app.models import (
     Promotion,
     PromotionScope,
     PromotionType,
+    ChargeStatus,
     Restaurant,
     RestaurantConfiguration,
     RestaurantStaffRole,
@@ -258,8 +261,24 @@ def _seed_demo_in_context() -> None:
             tier_id=tier.id,
             status=MembershipStatus.ACTIVE,
             source=MembershipSource.PAID,
+            started_at=datetime.now(tz=timezone.utc),
         )
         db.session.add(membership)
+        db.session.flush()
+
+    if not membership.receipts:
+        db.session.add(
+            MembershipReceipt(
+                membership=membership,
+                customer_id=customer.id,
+                amount_cents=999,
+                status=ChargeStatus.SUCCEEDED,
+                provider="mock",
+                issued_at=datetime.now(tz=timezone.utc),
+                period_start=datetime.now(tz=timezone.utc),
+                period_end=datetime.now(tz=timezone.utc),
+            )
+        )
 
     db.session.commit()
 

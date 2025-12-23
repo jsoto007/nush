@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 from flask import Flask
 
-from .config import Config
 from .extensions import cors, db, limiter, migrate
 from .routes import register_api_blueprints
 
@@ -20,6 +19,7 @@ def _parse_origins(raw_origins: str):
 
 def create_app():
     load_dotenv()
+    from .config import Config
     app = Flask(__name__)
     app.config.from_object(Config)
 
