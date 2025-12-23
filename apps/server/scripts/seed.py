@@ -109,44 +109,58 @@ def _get_or_create_user(email: str, role: UserRoleType, password: str, name: str
 
 
 def _seed_restaurant(owner: User, index: int):
-    restaurant = Restaurant(
-        name=fake.company(),
-        phone=fake.phone_number(),
-        email=fake.company_email(),
-        status=RestaurantStatus.ACTIVE,
-        cuisines=[fake.word(), fake.word()],
-        owner_id=owner.id,
-    )
-    db.session.add(restaurant)
-    db.session.flush()
-    db.session.add(RestaurantConfiguration(restaurant_id=restaurant.id))
-    db.session.add(OrderTypeConfiguration(restaurant_id=restaurant.id, supports_pickup=True))
-    db.session.add(
-        RestaurantStaffUser(
-            user_id=owner.id, restaurant_id=restaurant.id, role=RestaurantStaffRole.OWNER
+    name = f"Demo Restaurant {index}"
+    restaurant = Restaurant.query.filter_by(name=name).first()
+    if not restaurant:
+        restaurant = Restaurant(
+            name=name,
+            phone=fake.phone_number(),
+            email=fake.company_email(),
+            status=RestaurantStatus.ACTIVE,
+            cuisines=[fake.word().title(), fake.word().title()],
+            owner_id=owner.id,
         )
-    )
+        db.session.add(restaurant)
+        db.session.flush()
+        db.session.add(RestaurantConfiguration(restaurant_id=restaurant.id))
+        db.session.add(OrderTypeConfiguration(restaurant_id=restaurant.id, supports_pickup=True))
+        db.session.add(
+            RestaurantStaffUser(
+                user_id=owner.id, restaurant_id=restaurant.id, role=RestaurantStaffRole.OWNER
+            )
+        )
 
-    menu = Menu(restaurant_id=restaurant.id, name=f"Main Menu {index}", is_active=True)
-    db.session.add(menu)
-    db.session.flush()
+    menu = Menu.query.filter_by(restaurant_id=restaurant.id, name=f"Main Menu {index}").first()
+    if not menu:
+        menu = Menu(restaurant_id=restaurant.id, name=f"Main Menu {index}", is_active=True)
+        db.session.add(menu)
+        db.session.flush()
 
     categories = []
-    for c in range(2):
-        category = MenuCategory(
-            restaurant_id=restaurant.id,
-            menu_id=menu.id,
-            name=fake.word().title(),
-            sort_order=c,
-            is_active=True,
-        )
-        db.session.add(category)
+    for c in range(3):
+        cat_name = f"Category {c+1}"
+        category = MenuCategory.query.filter_by(
+            restaurant_id=restaurant.id, menu_id=menu.id, name=cat_name
+        ).first()
+        if not category:
+            category = MenuCategory(
+                restaurant_id=restaurant.id,
+                menu_id=menu.id,
+                name=cat_name,
+                sort_order=c,
+                is_active=True,
+            )
+            db.session.add(category)
         categories.append(category)
 
     db.session.flush()
 
     for category in categories:
-        for _ in range(3):
+        existing_items = MenuItem.query.filter_by(category_id=category.id).count()
+        if existing_items >= 3:
+            continue
+
+        for _ in range(3 - existing_items):
             base_price = random.randint(800, 2200)
             item = MenuItem(
                 restaurant_id=restaurant.id,
@@ -199,8 +213,10 @@ def _seed_rbac_in_context() -> None:
         if not role:
             role = Role(name=role_name)
             db.session.add(role)
+            # Rollback flush if exists in DB from previous failed run but not in session
             db.session.flush()
 
+        # Update Role Permissions
         existing = {rp.permission_id for rp in RolePermission.query.filter_by(role_id=role.id).all()}
         for perm_name in perm_names:
             permission = permissions[perm_name]
@@ -221,13 +237,17 @@ def _seed_demo_in_context() -> None:
     )
     _get_or_create_user("staff@nush.local", UserRoleType.STAFF, "staff123", name="Staff User")
 
-    for i in range(2):
+    for i in range(3):
         _seed_restaurant(owner, i + 1)
 
-    promo = Promotion.query.filter_by(code="WELCOME10").first()
+    # Use normalized code for checking
+    promo_code = "WELCOME10"
+    promo_code_norm = promo_code.lower()
+    promo = Promotion.query.filter_by(code_normalized=promo_code_norm).first()
     if not promo:
         promo = Promotion(
-            code="WELCOME10",
+            code=promo_code,
+            code_normalized=promo_code_norm,
             name="Welcome 10%",
             description="10% off order",
             type=PromotionType.PERCENT,

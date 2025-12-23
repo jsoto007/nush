@@ -39,8 +39,6 @@ def _load_cart_for_user(cart_id, user):
     cart = db.session.get(Cart, cart_id)
     if not cart:
         return None, error("NOT_FOUND", "Cart not found", status=404)
-    if cart.order_type != OrderType.PICKUP:
-        return None, error("VALIDATION_ERROR", "Only pickup is supported", {"order_type": "pickup_only"})
     if cart.restaurant and cart.restaurant.status.value != "active":
         return None, error("VALIDATION_ERROR", "Restaurant is not active", {"restaurant": "inactive"})
     if cart.customer_id and cart.customer_id != user.id:
@@ -92,7 +90,7 @@ def checkout_create_intent():
     order = Order(
         customer_id=user.id,
         restaurant_id=cart.restaurant_id,
-        order_type=OrderType.PICKUP,
+        order_type=cart.order_type,
         status=OrderStatus.CREATED,
         subtotal_cents=totals["subtotal_cents"],
         tax_cents=totals["tax_cents"],
@@ -187,7 +185,7 @@ def checkout_confirm():
         order = Order(
             customer_id=user.id,
             restaurant_id=cart.restaurant_id,
-            order_type=OrderType.PICKUP,
+            order_type=cart.order_type,
             status=OrderStatus.CONFIRMED,
             subtotal_cents=totals["subtotal_cents"],
             tax_cents=totals["tax_cents"],
@@ -264,28 +262,29 @@ def checkout_confirm():
         allocation.fee_cents = totals["fee_cents"]
         allocation.payout_cents = totals["total_cents"]
 
-    pickup_window = payload.get("pickup_window") or {}
-    start = pickup_window.get("start")
-    end = pickup_window.get("end")
-    now = datetime.now(tz=timezone.utc)
-    try:
-        start_dt = datetime.fromisoformat(start) if start else now
-        end_dt = datetime.fromisoformat(end) if end else now
-    except ValueError:
-        return error("VALIDATION_ERROR", "pickup_window must be ISO-8601 datetimes", {"pickup_window": "invalid"})
-    if end_dt < start_dt:
-        return error("VALIDATION_ERROR", "pickup_window end must be after start", {"pickup_window": "invalid"})
-    if order.pickup_schedule:
-        order.pickup_schedule.requested_start = start_dt
-        order.pickup_schedule.requested_end = end_dt
-    else:
-        schedule = PickupSchedule(
-            order_id=order.id,
-            requested_start=start_dt,
-            requested_end=end_dt,
-            pickup_code=secrets.token_hex(3),
-        )
-        db.session.add(schedule)
+    if order.order_type == OrderType.PICKUP:
+        pickup_window = payload.get("pickup_window") or {}
+        start = pickup_window.get("start")
+        end = pickup_window.get("end")
+        now = datetime.now(tz=timezone.utc)
+        try:
+            start_dt = datetime.fromisoformat(start) if start else now
+            end_dt = datetime.fromisoformat(end) if end else now
+        except ValueError:
+            return error("VALIDATION_ERROR", "pickup_window must be ISO-8601 datetimes", {"pickup_window": "invalid"})
+        if end_dt < start_dt:
+            return error("VALIDATION_ERROR", "pickup_window end must be after start", {"pickup_window": "invalid"})
+        if order.pickup_schedule:
+            order.pickup_schedule.requested_start = start_dt
+            order.pickup_schedule.requested_end = end_dt
+        else:
+            schedule = PickupSchedule(
+                order_id=order.id,
+                requested_start=start_dt,
+                requested_end=end_dt,
+                pickup_code=secrets.token_hex(3),
+            )
+            db.session.add(schedule)
 
     if cart.promo_id:
         promo = db.session.get(Promotion, cart.promo_id)

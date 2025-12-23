@@ -1,132 +1,58 @@
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { getApiBaseUrl, type HealthResponse } from "@repo/shared";
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { AuthProvider, useAuth } from "./lib/AuthContext";
+import { LoginScreen } from "./screens/LoginScreen";
+import { RegisterScreen } from "./screens/RegisterScreen";
+import { RestaurantListScreen } from "./screens/RestaurantListScreen";
+import { RestaurantDetailsScreen } from "./screens/RestaurantDetailsScreen";
+import { View, StyleSheet, ActivityIndicator } from "react-native";
 
-const apiBaseUrl = getApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+const Stack = createNativeStackNavigator();
 
-export default function App() {
-  const [status, setStatus] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+const Navigation = () => {
+  const { user, loading } = useAuth();
 
-  const handlePing = async () => {
-    setLoading(true);
-    setError("");
-    setStatus("");
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/health`);
-      if (!response.ok) {
-        throw new Error(`Request failed (${response.status})`);
-      }
-      const data = (await response.json()) as HealthResponse;
-      setStatus(data.status);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#1c1917" />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.kicker}>nush</Text>
-        <Text style={styles.title}>Mobile ping console</Text>
-        <Text style={styles.subtitle}>Confirm the API is healthy.</Text>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="RestaurantList" component={RestaurantListScreen} />
+            <Stack.Screen name="RestaurantDetails" component={RestaurantDetailsScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
 
-        <Pressable style={styles.button} onPress={handlePing} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? "Pinging..." : "Ping API"}</Text>
-        </Pressable>
-
-        <View style={styles.card}>
-          {loading && <ActivityIndicator />}
-          {!loading && status ? (
-            <Text style={styles.success}>Status: {status}</Text>
-          ) : null}
-          {!loading && error ? <Text style={styles.error}>Error: {error}</Text> : null}
-          {!loading && !status && !error ? (
-            <Text style={styles.muted}>Awaiting response.</Text>
-          ) : null}
-        </View>
-
-        <Text style={styles.baseUrl} numberOfLines={1}>
-          {apiBaseUrl}
-        </Text>
-      </View>
-    </SafeAreaView>
+export default function App() {
+  return (
+    <AuthProvider>
+      <Navigation />
+    </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f3ef",
-  },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-  },
-  kicker: {
-    fontSize: 12,
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    color: "#8f8476",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "600",
-    color: "#1f1b16",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6f6458",
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  button: {
-    backgroundColor: "#1f1b16",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 999,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
-  },
-  buttonText: {
-    color: "#f8f5f1",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: "#dcd2c5",
-    borderStyle: "dashed",
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: "#fffaf4",
-    gap: 6,
-  },
-  success: {
-    color: "#2f7b49",
-  },
-  error: {
-    color: "#b9493a",
-  },
-  muted: {
-    color: "#8f8476",
-  },
-  baseUrl: {
-    marginTop: 16,
-    fontSize: 12,
-    color: "#8f8476",
+    backgroundColor: "#ffffff",
   },
 });

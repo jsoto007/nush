@@ -1,66 +1,140 @@
-import { useState } from "react";
-import { getApiBaseUrl, type HealthResponse } from "@repo/shared";
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { CartProvider, useCart } from "./context/CartContext";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { RestaurantList } from "./pages/RestaurantList";
+import { RestaurantDetails } from "./pages/RestaurantDetails";
+import { Checkout } from "./pages/Checkout";
+import { CartSidebar } from "./components/CartSidebar";
+import { User, ShoppingCart, Search } from "lucide-react";
 
-const apiBaseUrl = getApiBaseUrl(import.meta.env.VITE_API_URL);
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
 
-function App() {
-  const [status, setStatus] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-stone-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-200 border-t-stone-900"></div>
+      </div>
+    );
+  }
 
-  const handlePing = async () => {
-    setLoading(true);
-    setError("");
-    setStatus("");
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/health`);
-      if (!response.ok) {
-        throw new Error(`Request failed (${response.status})`);
-      }
-      const data = (await response.json()) as HealthResponse;
-      setStatus(data.status);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  return <>{children}</>;
+};
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, logout } = useAuth();
+  const { setIsOpen, cart } = useCart();
+  const itemCount = cart?.items.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-amber-50">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6">
-        <div className="rounded-3xl border border-stone-200 bg-white/70 p-8 shadow-xl shadow-stone-200/40 backdrop-blur">
-          <p className="text-sm uppercase tracking-[0.3em] text-stone-500">nush</p>
-          <h1 className="mt-4 text-4xl font-semibold text-stone-900">
-            Calm, focused app starter
-          </h1>
-          <p className="mt-3 text-base text-stone-600">
-            Ping the API to verify the stack is live.
-          </p>
-
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <button
-              className="rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
-              onClick={handlePing}
-              disabled={loading}
+    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-stone-900 selection:text-white">
+      <header className="sticky top-0 z-50 border-b border-stone-200 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-8">
+            <h1
+              onClick={() => window.location.href = "/"}
+              className="cursor-pointer text-2xl font-black tracking-tighter"
             >
-              {loading ? "Pinging..." : "Ping API"}
-            </button>
-            <div className="text-sm text-stone-500">
-              Base URL: <span className="font-mono text-stone-700">{apiBaseUrl}</span>
+              NUSH<span className="text-stone-400">.</span>
+            </h1>
+
+            <div className="hidden min-w-[320px] items-center gap-3 rounded-2xl bg-stone-100 px-4 py-2.5 transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-stone-900/5 sm:flex">
+              <Search size={18} className="text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search restaurants, cuisines..."
+                className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-stone-400"
+              />
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-4 py-3 text-sm">
-            {status && <p className="text-green-700">Status: {status}</p>}
-            {error && <p className="text-red-700">Error: {error}</p>}
-            {!status && !error && <p className="text-stone-500">Awaiting response.</p>}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsOpen(true)}
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl transition hover:bg-stone-100"
+            >
+              <ShoppingCart size={20} />
+              {itemCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-[10px] font-bold text-white ring-4 ring-white">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+            <div className="h-6 w-px bg-stone-200 mx-2" />
+            <div className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-white p-1 pr-3 shadow-sm">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-sm font-bold text-white uppercase">
+                {user?.name?.charAt(0)}
+              </div>
+              <span className="text-sm font-bold hidden sm:inline">{user?.name}</span>
+              <button
+                onClick={logout}
+                className="ml-2 text-xs font-bold text-stone-400 hover:text-red-500 transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {children}
+      </main>
+      <CartSidebar />
     </div>
   );
-}
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <CartProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <RestaurantList />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/restaurant/:id"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <RestaurantDetails />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkout"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Checkout />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </CartProvider>
+    </AuthProvider>
+  );
+};
 
 export default App;

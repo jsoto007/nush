@@ -29,7 +29,7 @@ def _get_cart_for_user_or_guest(restaurant_id):
     if user:
         return (
             db.session.query(Cart)
-            .filter_by(customer_id=user.id, restaurant_id=restaurant_id, order_type=OrderType.PICKUP)
+            .filter_by(customer_id=user.id, restaurant_id=restaurant_id)
             .first()
         )
     guest_cart_id = read_guest_cart_id()
@@ -86,8 +86,6 @@ def create_cart():
     order_type, err = parse_enum(payload.get("order_type"), OrderType, "order_type")
     if err:
         return err
-    if order_type != OrderType.PICKUP:
-        return error("VALIDATION_ERROR", "Only pickup is supported", {"order_type": "pickup_only"})
 
     cart = _get_cart_for_user_or_guest(restaurant_id)
     if cart:
@@ -122,8 +120,6 @@ def add_item():
     auth_err = _authorize_cart(cart)
     if auth_err:
         return auth_err
-    if cart.order_type != OrderType.PICKUP:
-        return error("VALIDATION_ERROR", "Only pickup is supported", {"order_type": "pickup_only"})
 
     menu_item_id, err = parse_uuid(payload.get("menu_item_id"), "menu_item_id")
     if err:
@@ -135,7 +131,12 @@ def add_item():
     if not menu_item or not menu_item.is_active or menu_item.restaurant_id != cart.restaurant_id:
         return error("VALIDATION_ERROR", "Menu item unavailable", {"menu_item_id": "invalid"})
 
-    base_price = menu_item.price_pickup_cents or menu_item.base_price_cents
+    is_delivery = cart.order_type == OrderType.DELIVERY
+    base_price = (
+        menu_item.price_delivery_cents
+        if is_delivery and menu_item.price_delivery_cents is not None
+        else menu_item.price_pickup_cents or menu_item.base_price_cents
+    )
     cart_item = CartItem(
         cart_id=cart.id,
         menu_item_id=menu_item.id,
