@@ -4,7 +4,15 @@ import { useAuth } from "./AuthContext";
 
 interface CartContextType {
     cart: Cart | null;
-    addItem: (item: MenuItem, restaurantId: string) => Promise<void>;
+    addItem: (
+        item: MenuItem,
+        restaurantId: string,
+        options?: {
+            quantity?: number;
+            notes?: string;
+            selections?: { option_id: string; option_group_id: string }[];
+        }
+    ) => Promise<void>;
     updateQuantity: (itemId: string, quantity: number) => Promise<void>;
     removeItem: (itemId: string) => Promise<void>;
     clearCart: () => Promise<void>;
@@ -25,7 +33,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // In a real app, we might fetch the most recent cart for the user
     // For now, we'll rely on the restaurant context from pages
 
-    const addItem = async (item: MenuItem, restaurantId: string) => {
+    const addItem = async (
+        item: MenuItem,
+        restaurantId: string,
+        options?: {
+            quantity?: number;
+            notes?: string;
+            selections?: { option_id: string; option_group_id: string }[];
+        }
+    ) => {
         setLoading(true);
         try {
             let currentCart = cart;
@@ -46,8 +62,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const itemResponse = await api.post<{ cart: Cart }>("/api/v1/cart/items", {
                 cart_id: currentCart.id,
                 menu_item_id: item.id,
-                quantity: 1,
-                options: []
+                quantity: options?.quantity ?? 1,
+                notes: options?.notes,
+                options: options?.selections ?? []
             });
 
             if (itemResponse.ok && itemResponse.data) {
