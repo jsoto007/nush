@@ -18,7 +18,7 @@ from ..models import (
     User,
 )
 from .response import error, ok
-from .serializers import menu_category_summary, menu_item_summary, menu_summary, restaurant_summary
+from .serializers import menu_category_summary, menu_item_summary, menu_summary, restaurant_summary, user_summary
 from .validators import get_json
 
 
@@ -122,6 +122,47 @@ def add_staff(restaurant_id):
     return _add(restaurant_id=restaurant_id)
 
 
+@restaurant_admin_bp.get("/restaurants/<uuid:restaurant_id>/staff")
+@require_auth
+def list_staff(restaurant_id):
+    access = require_restaurant_access("restaurant_id", RestaurantStaffRole.VIEWER)
+
+    @access
+    def _list(restaurant_id):
+        staff = db.session.query(RestaurantStaffUser).filter_by(restaurant_id=restaurant_id).all()
+        return ok({
+            "staff": [
+                {
+                    "id": str(s.id),
+                    "user": user_summary(s.user),
+                    "role": s.role.value,
+                    "is_active": s.is_active
+                }
+                for s in staff
+            ]
+        })
+
+    return _list(restaurant_id=restaurant_id)
+
+
+@restaurant_admin_bp.delete("/staff/<uuid:staff_id>")
+@require_auth
+def remove_staff(staff_id):
+    staff = db.session.get(RestaurantStaffUser, staff_id)
+    if not staff:
+        return error("NOT_FOUND", "Staff member not found", status=404)
+
+    access = require_restaurant_access("restaurant_id", RestaurantStaffRole.OWNER)
+
+    @access
+    def _delete(restaurant_id):
+        db.session.delete(staff)
+        db.session.commit()
+        return ok({"deleted": True})
+
+    return _delete(restaurant_id=staff.restaurant_id)
+
+
 @restaurant_admin_bp.post("/restaurants/<uuid:restaurant_id>/menus")
 @require_auth
 def create_menu(restaurant_id):
@@ -204,6 +245,8 @@ def create_item(menu_id):
             is_active=payload.get("is_active", True),
             out_of_stock_until=payload.get("out_of_stock_until"),
             display_order=payload.get("display_order", 0),
+            stock_quantity=payload.get("stock_quantity"),
+            track_stock=payload.get("track_stock", False),
         )
         db.session.add(item)
         db.session.commit()
@@ -235,6 +278,8 @@ def update_item(item_id):
             "is_active",
             "out_of_stock_until",
             "display_order",
+            "stock_quantity",
+            "track_stock",
         ]:
             if field in payload:
                 setattr(item, field, payload[field])
@@ -301,3 +346,27 @@ def create_option(group_id):
 
     menu_item = db.session.get(MenuItem, group.menu_item_id)
     return _create(restaurant_id=menu_item.restaurant_id)
+
+
+@restaurant_admin_bp.patch("/items/<uuid:item_id>/stock")
+@require_auth
+def update_item_stock(item_id):
+    payload, err = get_json(request)
+    if err:
+        return err
+    item = db.session.get(MenuItem, item_id)
+    if not item:
+        return error("NOT_FOUND", "Menu item not found", status=404)
+
+    access = require_restaurant_access("restaurant_id", RestaurantStaffRole.MENU_EDITOR)
+
+    @access
+    def _update(restaurant_id):
+        if "stock_quantity" in payload:
+            item.stock_quantity = payload["stock_quantity"]
+        if "track_stock" in payload:
+            item.track_stock = payload["track_stock"]
+        db.session.commit()
+        return ok({"item": menu_item_summary(item)})
+
+    return _update(restaurant_id=item.restaurant_id)

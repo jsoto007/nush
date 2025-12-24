@@ -7,6 +7,13 @@ import { Register } from "./pages/Register";
 import { RestaurantList } from "./pages/RestaurantList";
 import { RestaurantDetails } from "./pages/RestaurantDetails";
 import { Checkout } from "./pages/Checkout";
+import { AdminRoute } from "./components/AdminRoute";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { RestaurantConsole } from "./pages/admin/RestaurantConsole";
+import { MenuManagement } from "./pages/admin/MenuManagement";
+import { StaffManagement } from "./pages/admin/StaffManagement";
+import { InventoryManager } from "./pages/admin/InventoryManager";
+import { RestaurantSettings } from "./pages/admin/RestaurantSettings";
 import { CartSidebar } from "./components/CartSidebar";
 import { User, ShoppingCart, Search } from "lucide-react";
 
@@ -129,6 +136,28 @@ export const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
+            {/* Admin Routes */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/restaurant/:id"
+              element={
+                <AdminRoute>
+                  <RestaurantConsole />
+                </AdminRoute>
+              }
+            >
+              <Route path="menu" element={<MenuManagement />} />
+              <Route path="staff" element={<StaffManagement />} />
+              <Route path="inventory" element={<InventoryManager />} />
+              <Route path="settings" element={<RestaurantSettings />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

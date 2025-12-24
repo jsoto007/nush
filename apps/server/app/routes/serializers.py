@@ -77,6 +77,8 @@ def menu_item_summary(item) -> dict[str, Any]:
         "is_active": item.is_active,
         "out_of_stock_until": _iso(item.out_of_stock_until),
         "display_order": item.display_order,
+        "stock_quantity": item.stock_quantity,
+        "track_stock": item.track_stock,
         "option_groups": [menu_item_option_group(group) for group in item.option_groups if group.is_active],
     }
 

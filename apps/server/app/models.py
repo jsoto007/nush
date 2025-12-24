@@ -467,6 +467,8 @@ class MenuItem(SoftDeleteMixin, BaseModel):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     out_of_stock_until = db.Column(db.DateTime(timezone=True))
     display_order = db.Column(db.Integer, default=0)
+    stock_quantity = db.Column(db.Integer, nullable=True)
+    track_stock = db.Column(db.Boolean, nullable=False, default=False)
 
     menu = db.relationship("Menu", back_populates="items")
     category = db.relationship("MenuCategory", back_populates="items")

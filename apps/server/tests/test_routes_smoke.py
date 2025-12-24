@@ -71,6 +71,9 @@ class FakeSession:
     def flush(self, *args, **kwargs):
         return None
 
+    def remove(self, *args, **kwargs):
+        return None
+
 
 def build_url(rule):
     def replace(match):

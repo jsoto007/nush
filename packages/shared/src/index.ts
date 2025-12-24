@@ -68,6 +68,8 @@ export interface MenuItem {
   price_delivery_cents?: number;
   tags: string[];
   is_active: boolean;
+  stock_quantity?: number;
+  track_stock: boolean;
   option_groups: MenuItemOptionGroup[];
 }
 
