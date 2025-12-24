@@ -244,19 +244,28 @@ export const RestaurantDetails: React.FC = () => {
                     Back to browse
                 </button>
 
-                <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
-                    <div>
+                <div className="mb-10">
+                    <div className="md:hidden">
                         <h1 className="text-3xl font-extrabold tracking-tight text-stone-900">
                             {restaurant.name}
                         </h1>
                         <p className="mt-2 text-sm text-stone-500">{restaurant.cuisines.join(" • ")}</p>
                     </div>
-                    <div className="hidden h-24 w-36 overflow-hidden rounded-2xl bg-stone-100 md:block">
-                        <img
-                            src={foodPlaceholder}
-                            alt={restaurant.name}
-                            className="h-full w-full object-cover"
-                        />
+
+                    <div className="hidden md:block">
+                        <div className="flex flex-col gap-6 rounded-3xl border border-stone-200 bg-white p-8 lg:flex-row lg:items-end lg:justify-between">
+                            <div>
+                                <h1 className="text-4xl font-bold text-stone-900">{restaurant.name}</h1>
+                                <p className="mt-2 text-stone-500">{restaurant.cuisines.join(" • ")}</p>
+                            </div>
+                            <div className="h-32 w-48 overflow-hidden rounded-2xl bg-stone-100">
+                                <img
+                                    src={foodPlaceholder}
+                                    alt={restaurant.name}
+                                    className="h-full w-full object-cover"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
