@@ -209,7 +209,7 @@ export const RestaurantDetails: React.FC = () => {
         <div className="w-screen -mx-[calc(50vw-50%)] -mt-px">
             <div
                 ref={catBarRef}
-                className="fixed inset-x-0 z-40 border-b border-stone-200 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur"
+                className="sticky inset-x-0 z-40 border-b border-stone-200 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur"
                 style={{ top: headerHeight }}
             >
                 <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
@@ -233,7 +233,6 @@ export const RestaurantDetails: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{ height: catBarHeight + 12 }} />
 
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <button

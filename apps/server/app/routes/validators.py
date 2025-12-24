@@ -35,10 +35,9 @@ def parse_enum(value: Any, enum_cls, field: str):
     try:
         return enum_cls(value), None
     except ValueError:
-        allowed = [item.value for item in enum_cls]
         return None, error(
             "VALIDATION_ERROR",
-            f"{field} must be one of {allowed}",
+            f"Invalid value for {field}",
             {field: "invalid"},
         )
 

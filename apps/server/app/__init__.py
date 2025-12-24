@@ -1,8 +1,10 @@
 from dotenv import load_dotenv
 from flask import Flask
+from werkzeug.exceptions import HTTPException
 
 from .extensions import cors, db, limiter, migrate
 from .routes import register_api_blueprints
+from .routes.response import error
 
 
 def _parse_origins(raw_origins: str):
@@ -44,4 +46,28 @@ def create_app():
         return {"status": "ok"}
 
     register_api_blueprints(app)
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(exc: HTTPException):
+        status = exc.code or 400
+        friendly_messages = {
+            400: "Invalid request.",
+            401: "Authentication required.",
+            403: "Access denied.",
+            404: "Resource not found.",
+            405: "Method not allowed.",
+            409: "Request conflict.",
+            415: "Unsupported media type.",
+            422: "Invalid request.",
+        }
+        return error("HTTP_ERROR", friendly_messages.get(status, "Request failed."), status=status)
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_exception(exc: Exception):
+        app.logger.exception("Unhandled exception")
+        return error(
+            "INTERNAL_ERROR",
+            "Something went wrong. Please try again later.",
+            status=500,
+        )
     return app
