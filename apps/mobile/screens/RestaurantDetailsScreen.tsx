@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     StyleSheet,
     View,
@@ -8,15 +8,14 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     FlatList,
-    Dimensions,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
 } from "react-native";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { type Restaurant, type Menu, type MenuItem, type MenuCategory } from "@repo/shared";
 import { ChevronLeft, Star, Clock, MapPin, Plus, ShoppingCart } from "lucide-react-native";
 import { ItemOptionsModal } from "../components/ItemOptionsModal";
-
-const { width } = Dimensions.get("window");
 
 export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
     const { id } = route.params;
@@ -29,6 +28,19 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
 
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
     const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+    const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
+    const [categoryNavHeight, setCategoryNavHeight] = useState(0);
+    const scrollRef = useRef<ScrollView | null>(null);
+
+    const categories = useMemo(() => {
+        const list = menu?.categories ?? [];
+        return [...list].sort((a, b) => {
+            const aOrder = typeof a.sort_order === "number" ? a.sort_order : 0;
+            const bOrder = typeof b.sort_order === "number" ? b.sort_order : 0;
+            return aOrder - bOrder;
+        });
+    }, [menu?.categories]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -59,6 +71,12 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
         fetchData();
     }, [id]);
 
+    useEffect(() => {
+        if (!activeCategoryId && categories[0]) {
+            setActiveCategoryId(categories[0].id);
+        }
+    }, [activeCategoryId, categories]);
+
     const handleAddItem = (item: MenuItem) => {
         if (item.option_groups && item.option_groups.length > 0) {
             setSelectedItem(item);
@@ -74,6 +92,44 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
             setSelectedItem(null);
         }
     };
+
+    const handleCategoryLayout = useCallback(
+        (categoryId: string) => (event: any) => {
+            const { y } = event.nativeEvent.layout;
+            setCategoryOffsets((prev) => (prev[categoryId] === y ? prev : { ...prev, [categoryId]: y }));
+        },
+        []
+    );
+
+    const scrollToCategory = useCallback(
+        (categoryId: string) => {
+            const targetY = categoryOffsets[categoryId];
+            if (typeof targetY !== "number") return;
+            scrollRef.current?.scrollTo({
+                y: Math.max(0, targetY - categoryNavHeight - 12),
+                animated: true,
+            });
+            setActiveCategoryId(categoryId);
+        },
+        [categoryNavHeight, categoryOffsets]
+    );
+
+    const handleScroll = useCallback(
+        (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const currentY = event.nativeEvent.contentOffset.y + categoryNavHeight + 16;
+            let currentId: string | null = null;
+            for (const category of categories) {
+                const offset = categoryOffsets[category.id];
+                if (typeof offset === "number" && offset <= currentY) {
+                    currentId = category.id;
+                }
+            }
+            if (currentId && currentId !== activeCategoryId) {
+                setActiveCategoryId(currentId);
+            }
+        },
+        [activeCategoryId, categories, categoryNavHeight, categoryOffsets]
+    );
 
     const renderMenuItem = (item: MenuItem) => (
         <TouchableOpacity key={item.id} style={styles.menuItem}>
@@ -122,7 +178,13 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                stickyHeaderIndices={categories.length ? [2] : undefined}
+                onScroll={categories.length ? handleScroll : undefined}
+                scrollEventThrottle={16}
+            >
                 <View style={styles.imageContainer}>
                     <Image
                         source={{ uri: `https://source.unsplash.com/featured/?food,${restaurant.cuisines?.[0] || 'restaurant'}` }}
@@ -156,9 +218,48 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
                             <Text style={styles.infoText}>1.2 mi</Text>
                         </View>
                     </View>
+                </View>
 
-                    {menu?.categories.map((category) => (
-                        <View key={category.id} style={styles.categorySection}>
+                {categories.length > 0 && (
+                    <View
+                        style={styles.categoryNav}
+                        onLayout={(event) => setCategoryNavHeight(event.nativeEvent.layout.height)}
+                    >
+                        <FlatList
+                            data={categories}
+                            keyExtractor={(item) => item.id}
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.categoryNavContent}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    onPress={() => scrollToCategory(item.id)}
+                                    style={[
+                                        styles.categoryChip,
+                                        activeCategoryId === item.id && styles.categoryChipActive,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.categoryChipText,
+                                            activeCategoryId === item.id && styles.categoryChipTextActive,
+                                        ]}
+                                    >
+                                        {item.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </View>
+                )}
+
+                <View style={styles.contentBody}>
+                    {categories.map((category) => (
+                        <View
+                            key={category.id}
+                            style={styles.categorySection}
+                            onLayout={handleCategoryLayout(category.id)}
+                        >
                             <Text style={styles.categoryTitle}>{category.name}</Text>
                             {category.items.map(renderMenuItem)}
                         </View>
@@ -228,6 +329,10 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: 20,
         paddingTop: 24,
+    },
+    contentBody: {
+        paddingHorizontal: 20,
+        paddingTop: 12,
         paddingBottom: 120,
     },
     header: {
@@ -263,6 +368,37 @@ const styles = StyleSheet.create({
         borderColor: "#f5f5f4",
         marginBottom: 32,
         gap: 24,
+    },
+    categoryNav: {
+        backgroundColor: "#ffffff",
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: "#f5f5f4",
+    },
+    categoryNavContent: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 10,
+    },
+    categoryChip: {
+        borderWidth: 1,
+        borderColor: "#e7e5e4",
+        backgroundColor: "#ffffff",
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 18,
+    },
+    categoryChipActive: {
+        borderColor: "#1c1917",
+        backgroundColor: "#1c1917",
+    },
+    categoryChipText: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#57534e",
+    },
+    categoryChipTextActive: {
+        color: "#ffffff",
     },
     infoItem: {
         flexDirection: "row",
