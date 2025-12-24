@@ -57,22 +57,41 @@ def _authorize_cart(cart):
 
 @carts_bp.get("/current")
 def get_current_cart():
-    restaurant_id, err = parse_uuid(request.args.get("restaurant_id"), "restaurant_id")
-    if err:
-        return err
-    restaurant = db.session.get(Restaurant, restaurant_id)
-    if not restaurant:
-        return error("NOT_FOUND", "Restaurant not found", status=404)
-    if restaurant.status != RestaurantStatus.ACTIVE:
-        return error("VALIDATION_ERROR", "Restaurant is not active", {"restaurant": "inactive"})
+    restaurant_id_raw = request.args.get("restaurant_id")
+    user = get_current_user()
 
-    cart = _get_cart_for_user_or_guest(restaurant_id)
-    if cart and cart.restaurant_id != restaurant_id:
-        cart = None
+    if restaurant_id_raw:
+        restaurant_id, err = parse_uuid(restaurant_id_raw, "restaurant_id")
+        if err:
+            return err
+        restaurant = db.session.get(Restaurant, restaurant_id)
+        if not restaurant:
+            return error("NOT_FOUND", "Restaurant not found", status=404)
+        if restaurant.status != RestaurantStatus.ACTIVE:
+            return error("VALIDATION_ERROR", "Restaurant is not active", {"restaurant": "inactive"})
+        cart = _get_cart_for_user_or_guest(restaurant_id)
+    else:
+        # If no restaurant_id, get the most recently updated cart for the user or guest
+        if user:
+            cart = (
+                db.session.query(Cart)
+                .filter_by(customer_id=user.id)
+                .order_by(Cart.updated_at.desc())
+                .first()
+            )
+        else:
+            guest_cart_id = read_guest_cart_id()
+            if guest_cart_id:
+                cart = db.session.query(Cart).filter_by(id=guest_cart_id).first()
+            else:
+                cart = None
+
     if not cart:
         return ok({"cart": None})
+
     totals = compute_cart_totals(cart)
     return ok({"cart": cart_summary(cart, totals)})
+
 
 
 @carts_bp.post("")

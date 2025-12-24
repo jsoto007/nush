@@ -10,6 +10,9 @@ import { View, StyleSheet, ActivityIndicator } from "react-native";
 
 const Stack = createNativeStackNavigator();
 
+import { CartProvider } from "./lib/CartContext";
+import { CheckoutScreen } from "./screens/CheckoutScreen";
+
 const Navigation = () => {
   const { user, loading } = useAuth();
 
@@ -33,6 +36,7 @@ const Navigation = () => {
           <>
             <Stack.Screen name="RestaurantList" component={RestaurantListScreen} />
             <Stack.Screen name="RestaurantDetails" component={RestaurantDetailsScreen} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -43,10 +47,13 @@ const Navigation = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <Navigation />
+      <CartProvider>
+        <Navigation />
+      </CartProvider>
     </AuthProvider>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

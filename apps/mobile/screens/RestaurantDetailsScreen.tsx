@@ -11,18 +11,24 @@ import {
     Dimensions,
 } from "react-native";
 import { useAuth } from "../lib/AuthContext";
+import { useCart } from "../lib/CartContext";
 import { type Restaurant, type Menu, type MenuItem, type MenuCategory } from "@repo/shared";
 import { ChevronLeft, Star, Clock, MapPin, Plus, ShoppingCart } from "lucide-react-native";
+import { ItemOptionsModal } from "../components/ItemOptionsModal";
 
 const { width } = Dimensions.get("window");
 
 export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
     const { id } = route.params;
     const { api } = useAuth();
+    const { cart, addItemToCart, fetchCart } = useCart();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menu, setMenu] = useState<Menu | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+    const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -38,6 +44,10 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
             if (menuResponse.ok && menuResponse.data) {
                 setMenu(menuResponse.data);
             }
+
+            // Sync cart for this restaurant
+            fetchCart(id);
+
         } catch (err) {
             setError("Network error");
         } finally {
@@ -48,6 +58,22 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
     useEffect(() => {
         fetchData();
     }, [id]);
+
+    const handleAddItem = (item: MenuItem) => {
+        if (item.option_groups && item.option_groups.length > 0) {
+            setSelectedItem(item);
+            setIsOptionsModalVisible(true);
+        } else {
+            addItemToCart(id, item, [], 1);
+        }
+    };
+
+    const handleConfirmOptions = (options: any[]) => {
+        if (selectedItem) {
+            addItemToCart(id, selectedItem, options, 1);
+            setSelectedItem(null);
+        }
+    };
 
     const renderMenuItem = (item: MenuItem) => (
         <TouchableOpacity key={item.id} style={styles.menuItem}>
@@ -65,7 +91,7 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
                     source={{ uri: `https://source.unsplash.com/featured/?food,${item.name}` }}
                     style={styles.menuItemImage}
                 />
-                <TouchableOpacity style={styles.addButton}>
+                <TouchableOpacity style={styles.addButton} onPress={() => handleAddItem(item)}>
                     <Plus size={20} color="#ffffff" />
                 </TouchableOpacity>
             </View>
@@ -91,12 +117,15 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
         );
     }
 
+    const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+    const cartTotal = (cart?.totals.total_cents || 0) / 100;
+
     return (
         <View style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.imageContainer}>
                     <Image
-                        source={{ uri: `https://source.unsplash.com/featured/?food,${restaurant.cuisines[0] || 'restaurant'}` }}
+                        source={{ uri: `https://source.unsplash.com/featured/?food,${restaurant.cuisines?.[0] || 'restaurant'}` }}
                         style={styles.heroImage}
                     />
                     <TouchableOpacity
@@ -114,7 +143,7 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
                             <Star size={16} color="#b45309" fill="#b45309" />
                             <Text style={styles.ratingText}>4.8 (500+ ratings)</Text>
                         </View>
-                        <Text style={styles.cuisines}>{restaurant.cuisines.join(" • ")}</Text>
+                        <Text style={styles.cuisines}>{restaurant.cuisines?.join(" • ") || ""}</Text>
                     </View>
 
                     <View style={styles.infoRow}>
@@ -137,21 +166,36 @@ export const RestaurantDetailsScreen = ({ route, navigation }: any) => {
                 </View>
             </ScrollView>
 
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.viewCartButton}>
-                    <View style={styles.cartContent}>
-                        <View style={styles.cartIconContainer}>
-                            <ShoppingCart size={20} color="#ffffff" />
+            {cartItemCount > 0 && (
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        style={styles.viewCartButton}
+                        onPress={() => navigation.navigate("Checkout")}
+                    >
+                        <View style={styles.cartContent}>
+                            <View style={styles.cartIconContainer}>
+                                <ShoppingCart size={20} color="#ffffff" />
+                            </View>
+                            <Text style={styles.cartButtonText}>View Cart</Text>
+                            <Text style={styles.cartCount}>{cartItemCount} item{cartItemCount > 1 ? 's' : ''}</Text>
                         </View>
-                        <Text style={styles.cartButtonText}>View Cart</Text>
-                        <Text style={styles.cartCount}>0 items</Text>
-                    </View>
-                    <Text style={styles.cartTotal}>$0.00</Text>
-                </TouchableOpacity>
-            </View>
+                        <Text style={styles.cartTotal}>${cartTotal.toFixed(2)}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {selectedItem && (
+                <ItemOptionsModal
+                    isVisible={isOptionsModalVisible}
+                    onClose={() => setIsOptionsModalVisible(false)}
+                    onConfirm={handleConfirmOptions}
+                    menuItem={selectedItem}
+                />
+            )}
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {

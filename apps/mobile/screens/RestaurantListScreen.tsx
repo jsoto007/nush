@@ -10,11 +10,13 @@ import {
     TextInput,
 } from "react-native";
 import { useAuth } from "../lib/AuthContext";
+import { useCart } from "../lib/CartContext";
 import { type Restaurant } from "@repo/shared";
-import { Star, Clock, Search, MapPin } from "lucide-react-native";
+import { Star, Clock, Search, MapPin, ShoppingCart } from "lucide-react-native";
 
 export const RestaurantListScreen = ({ navigation }: any) => {
     const { api, user, logout } = useAuth();
+    const { cart } = useCart();
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,13 +41,16 @@ export const RestaurantListScreen = ({ navigation }: any) => {
         fetchRestaurants();
     }, []);
 
+    const cartItemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+    const cartTotal = (cart?.totals.total_cents || 0) / 100;
+
     const renderItem = ({ item }: { item: Restaurant }) => (
         <TouchableOpacity
             style={styles.card}
             onPress={() => navigation.navigate("RestaurantDetails", { id: item.id })}
         >
             <Image
-                source={{ uri: `https://source.unsplash.com/featured/?food,${item.cuisines[0] || 'restaurant'}` }}
+                source={{ uri: `https://source.unsplash.com/featured/?food,${item.cuisines?.[0] || 'restaurant'}` }}
                 style={styles.cardImage}
             />
             <View style={styles.cardContent}>
@@ -56,7 +61,7 @@ export const RestaurantListScreen = ({ navigation }: any) => {
                         <Text style={styles.ratingText}>4.8</Text>
                     </View>
                 </View>
-                <Text style={styles.cardSubtitle}>{item.cuisines.join(" • ")}</Text>
+                <Text style={styles.cardSubtitle}>{item.cuisines?.join(" • ") || ""}</Text>
                 <View style={styles.cardFooter}>
                     <View style={styles.footerItem}>
                         <Clock size={14} color="#78716c" />
@@ -110,16 +115,38 @@ export const RestaurantListScreen = ({ navigation }: any) => {
                     data={restaurants}
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[
+                        styles.listContent,
+                        cartItemCount > 0 && { paddingBottom: 120 }
+                    ]}
                     showsVerticalScrollIndicator={false}
                     ListHeaderComponent={() => (
                         <Text style={styles.sectionTitle}>Featured Restaurants</Text>
                     )}
                 />
             )}
+
+            {cartItemCount > 0 && (
+                <View style={styles.cartBanner}>
+                    <TouchableOpacity
+                        style={styles.viewCartButton}
+                        onPress={() => navigation.navigate("Checkout")}
+                    >
+                        <View style={styles.cartContent}>
+                            <View style={styles.cartIconContainer}>
+                                <ShoppingCart size={20} color="#ffffff" />
+                            </View>
+                            <Text style={styles.cartButtonText}>View Cart</Text>
+                            <Text style={styles.cartCount}>{cartItemCount} item{cartItemCount > 1 ? 's' : ''}</Text>
+                        </View>
+                        <Text style={styles.cartTotal}>${cartTotal.toFixed(2)}</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {
@@ -273,4 +300,48 @@ const styles = StyleSheet.create({
         color: "#ffffff",
         fontWeight: "bold",
     },
+    cartBanner: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 40,
+        backgroundColor: "#ffffff",
+        borderTopWidth: 1,
+        borderTopColor: "#f5f5f4",
+    },
+    viewCartButton: {
+        backgroundColor: "#1c1917",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        height: 56,
+        borderRadius: 16,
+        paddingHorizontal: 20,
+    },
+    cartContent: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    cartIconContainer: {
+        marginRight: 12,
+    },
+    cartButtonText: {
+        color: "#ffffff",
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    cartCount: {
+        color: "rgba(255, 255, 255, 0.6)",
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    cartTotal: {
+        color: "#ffffff",
+        fontSize: 16,
+        fontWeight: "700",
+    },
 });
+
