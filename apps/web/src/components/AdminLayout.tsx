@@ -22,7 +22,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, restaurantNa
     const location = useLocation();
 
     const navigation = [
-        { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+        { name: "Dashboard", href: baseUrl || "/admin", icon: LayoutDashboard },
     ];
 
     const restaurantNavigation = restaurantName ? [
@@ -51,8 +51,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, restaurantNa
                                 key={item.name}
                                 to={item.href}
                                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition ${isActive
-                                        ? "bg-stone-900 text-white"
-                                        : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                                    ? "bg-stone-900 text-white"
+                                    : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
                                     }`}
                             >
                                 <Icon size={18} />
@@ -77,8 +77,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, restaurantNa
                                         key={item.name}
                                         to={item.href}
                                         className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition ${isActive
-                                                ? "bg-stone-900 text-white"
-                                                : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                                            ? "bg-stone-900 text-white"
+                                            : "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
                                             }`}
                                     >
                                         <Icon size={18} />

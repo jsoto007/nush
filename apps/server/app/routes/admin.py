@@ -1,8 +1,10 @@
 from flask import Blueprint, request
+from sqlalchemy import func
 
 from ..auth_helpers import require_role
 from ..extensions import db
-from ..models import MembershipTier, Order, Restaurant, RestaurantStatus, User, UserRoleType, Promotion, PromotionScope, PromotionType
+from ..model_helpers import normalize_lower
+from ..models import MembershipTier, Order, Restaurant, RestaurantStatus, User, UserRoleType, Promotion, PromotionScope, PromotionType, RestaurantConfiguration, OrderTypeConfiguration
 from .response import error, ok
 from .serializers import restaurant_summary, user_summary, order_summary
 from .validators import get_json, parse_enum, parse_pagination
@@ -11,9 +13,41 @@ from .validators import get_json, parse_enum, parse_pagination
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-@admin_bp.get("/users")
+@admin_bp.route("/users", methods=["GET", "POST"])
 @require_role(UserRoleType.ADMIN, UserRoleType.STAFF)
-def list_users():
+def manage_users():
+    if request.method == "POST":
+        payload, err = get_json(request)
+        if err:
+            return err
+
+        name = (payload.get("name") or "").strip()
+        email = normalize_lower(payload.get("email"))
+        password = payload.get("password")
+        role_name = payload.get("role", UserRoleType.CUSTOMER.value)
+
+        if not name or not email or not password:
+            return error(
+                "VALIDATION_ERROR",
+                "name, email, and password are required",
+                {"name": "required", "email": "required", "password": "required"},
+            )
+
+        try:
+            role = UserRoleType(role_name)
+        except ValueError:
+            return error("VALIDATION_ERROR", "Invalid role", {"role": "invalid"})
+
+        existing = db.session.query(User).filter(func.lower(User.email) == email).first()
+        if existing:
+            return error("CONFLICT", "Email already registered", {"email": "exists"}, status=409)
+
+        user = User(name=name, email=email, phone=payload.get("phone"), role=role)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        return ok({"user": user_summary(user)}, status=201)
+
     limit, offset, err = parse_pagination(request.args, default_limit=50, max_limit=200)
     if err:
         return err
@@ -41,9 +75,51 @@ def update_user(user_id):
     return ok({"user": user_summary(user)})
 
 
-@admin_bp.get("/restaurants")
+@admin_bp.route("/restaurants", methods=["GET", "POST"])
 @require_role(UserRoleType.ADMIN, UserRoleType.STAFF)
-def list_restaurants():
+def manage_restaurants():
+    if request.method == "POST":
+        payload, err = get_json(request)
+        if err:
+            return err
+
+        name = payload.get("name")
+        if not name:
+            return error("VALIDATION_ERROR", "name is required", {"name": "required"})
+
+        owner_id = payload.get("owner_id")
+        owner_email = normalize_lower(payload.get("owner_email"))
+        
+        if owner_email and not owner_id:
+            owner = db.session.query(User).filter(func.lower(User.email) == owner_email).first()
+            if owner:
+                owner_id = owner.id
+            else:
+                return error("NOT_FOUND", f"User with email {owner_email} not found", {"owner_email": "not_found"}, status=404)
+        elif owner_id:
+            owner = db.session.get(User, owner_id)
+            if not owner:
+                return error("NOT_FOUND", "Owner not found", status=404)
+
+        status, err = parse_enum(payload.get("status", RestaurantStatus.INACTIVE.value), RestaurantStatus, "status")
+        if err:
+            return err
+
+        restaurant = Restaurant(
+            name=name,
+            phone=payload.get("phone"),
+            email=payload.get("email"),
+            status=status,
+            cuisines=payload.get("cuisines") or [],
+            owner_id=owner_id,
+        )
+        db.session.add(restaurant)
+        db.session.flush()
+        db.session.add(RestaurantConfiguration(restaurant_id=restaurant.id))
+        db.session.add(OrderTypeConfiguration(restaurant_id=restaurant.id))
+        db.session.commit()
+        return ok({"restaurant": restaurant_summary(restaurant)}, status=201)
+
     limit, offset, err = parse_pagination(request.args, default_limit=50, max_limit=200)
     if err:
         return err
@@ -212,3 +288,5 @@ def update_membership_tier(tier_id):
             setattr(tier, field, payload[field])
     db.session.commit()
     return ok({"tier_id": str(tier.id)})
+
+

@@ -25,9 +25,12 @@ export const RestaurantConsole: React.FC = () => {
         fetchRestaurant();
     }, [id, api]);
 
+    const portalPath = location.pathname.startsWith("/admin") ? "/admin" : "/restaurant/admin-portal";
+    const baseConsoleUrl = `${portalPath}/restaurant/${id}`;
+
     if (loading) {
         return (
-            <AdminLayout>
+            <AdminLayout baseUrl={portalPath}>
                 <div className="flex h-[60vh] items-center justify-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-200 border-t-stone-900"></div>
                 </div>
@@ -36,18 +39,18 @@ export const RestaurantConsole: React.FC = () => {
     }
 
     if (!restaurant) {
-        return <Navigate to="/admin" replace />;
+        return <Navigate to={portalPath} replace />;
     }
 
-    // Default to menu if we are exactly at /admin/restaurant/:id
-    if (location.pathname === `/admin/restaurant/${id}` || location.pathname === `/admin/restaurant/${id}/`) {
-        return <Navigate to={`/admin/restaurant/${id}/menu`} replace />;
+    // Default to menu if we are exactly at the console root
+    if (location.pathname === baseConsoleUrl || location.pathname === `${baseConsoleUrl}/`) {
+        return <Navigate to={`${baseConsoleUrl}/menu`} replace />;
     }
 
     return (
         <AdminLayout
             restaurantName={restaurant.name}
-            baseUrl={`/admin/restaurant/${id}`}
+            baseUrl={portalPath}
         >
             <Outlet context={{ restaurant }} />
         </AdminLayout>

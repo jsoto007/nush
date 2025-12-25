@@ -8,7 +8,9 @@ import { RestaurantList } from "./pages/RestaurantList";
 import { RestaurantDetails } from "./pages/RestaurantDetails";
 import { Checkout } from "./pages/Checkout";
 import { AdminRoute } from "./components/AdminRoute";
-import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { OwnerRoute } from "./components/OwnerRoute";
+import { SuperAdminDashboard } from "./pages/admin/SuperAdminDashboard";
+import { OwnerDashboard } from "./pages/admin/OwnerDashboard";
 import { RestaurantConsole } from "./pages/admin/RestaurantConsole";
 import { MenuManagement } from "./pages/admin/MenuManagement";
 import { StaffManagement } from "./pages/admin/StaffManagement";
@@ -136,12 +138,12 @@ export const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            {/* Admin Routes */}
+            {/* Super Admin Routes */}
             <Route
               path="/admin"
               element={
                 <AdminRoute>
-                  <AdminDashboard />
+                  <SuperAdminDashboard />
                 </AdminRoute>
               }
             />
@@ -151,6 +153,29 @@ export const App: React.FC = () => {
                 <AdminRoute>
                   <RestaurantConsole />
                 </AdminRoute>
+              }
+            >
+              <Route path="menu" element={<MenuManagement />} />
+              <Route path="staff" element={<StaffManagement />} />
+              <Route path="inventory" element={<InventoryManager />} />
+              <Route path="settings" element={<RestaurantSettings />} />
+            </Route>
+
+            {/* Restaurant Partner Portal Routes */}
+            <Route
+              path="/restaurant/admin-portal"
+              element={
+                <OwnerRoute>
+                  <OwnerDashboard />
+                </OwnerRoute>
+              }
+            />
+            <Route
+              path="/restaurant/admin-portal/restaurant/:id"
+              element={
+                <OwnerRoute>
+                  <RestaurantConsole />
+                </OwnerRoute>
               }
             >
               <Route path="menu" element={<MenuManagement />} />
