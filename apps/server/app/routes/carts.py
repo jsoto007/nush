@@ -24,6 +24,76 @@ from .validators import get_json, parse_enum, parse_int, parse_uuid
 carts_bp = Blueprint("carts", __name__, url_prefix="/cart")
 
 
+def merge_guest_cart_into_user(guest_cart_id, user_id):
+    """
+    Merges a guest cart into a user's cart(s).
+    If the user already has a cart for the same restaurant, items are merged.
+    Otherwise, the guest cart is assigned to the user.
+    """
+    guest_cart = db.session.get(Cart, guest_cart_id)
+    if not guest_cart or guest_cart.customer_id is not None:
+        return
+
+    # Find if user already has a cart for this restaurant
+    user_cart = (
+        db.session.query(Cart)
+        .filter_by(customer_id=user_id, restaurant_id=guest_cart.restaurant_id)
+        .first()
+    )
+
+    if not user_cart:
+        # Simple case: Just assign the guest cart to the user
+        guest_cart.customer_id = user_id
+        db.session.commit()
+        return
+
+    # Complex case: Merge items from guest_cart into user_cart
+    for g_item in guest_cart.items:
+        # Try to find matching item in user cart
+        # Match by menu_item_id and options
+        match = None
+        for u_item in user_cart.items:
+            if u_item.menu_item_id == g_item.menu_item_id:
+                # Check options
+                g_options = {(o.option_id, o.option_group_id) for o in g_item.options}
+                u_options = {(o.option_id, o.option_group_id) for o in u_item.options}
+                if g_options == u_options:
+                    match = u_item
+                    break
+
+        if match:
+            # Update quantity (guest cart takes priority as per requirements "keep most recent")
+            # Or just use guest quantity. Let's use guest quantity.
+            match.quantity = g_item.quantity
+            match.notes = g_item.notes
+        else:
+            # Create new item in user cart
+            new_item = CartItem(
+                cart_id=user_cart.id,
+                menu_item_id=g_item.menu_item_id,
+                name_snapshot=g_item.name_snapshot,
+                base_price_cents=g_item.base_price_cents,
+                quantity=g_item.quantity,
+                notes=g_item.notes,
+            )
+            db.session.add(new_item)
+            for g_opt in g_item.options:
+                new_opt = CartItemOption(
+                    cart_item=new_item,
+                    option_id=g_opt.option_id,
+                    option_group_id=g_opt.option_group_id,
+                    name_snapshot=g_opt.name_snapshot,
+                    price_delta_cents=g_opt.price_delta_cents,
+                )
+                db.session.add(new_opt)
+
+    # Delete guest cart after merging
+    db.session.delete(guest_cart)
+    # Recalculate user cart totals
+    compute_cart_totals(user_cart)
+    db.session.commit()
+
+
 def _get_cart_for_user_or_guest(restaurant_id):
     user = get_current_user()
     if user:

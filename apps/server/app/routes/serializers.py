@@ -150,12 +150,14 @@ def order_summary(order) -> dict[str, Any]:
         "order_type": order.order_type.value if order.order_type else None,
         "status": order.status.value if order.status else None,
         "currency": order.currency,
-        "subtotal_cents": order.subtotal_cents,
-        "tax_cents": order.tax_cents,
-        "fee_cents": order.fee_cents,
-        "discount_cents": order.discount_cents,
-        "total_cents": order.total_cents,
         "placed_at": _iso(order.placed_at),
+        "totals": {
+            "subtotal_cents": order.subtotal_cents,
+            "tax_cents": order.tax_cents,
+            "fee_cents": order.fee_cents,
+            "discount_cents": order.discount_cents,
+            "total_cents": order.total_cents,
+        },
         "items": [
             {
                 "id": str(item.id),

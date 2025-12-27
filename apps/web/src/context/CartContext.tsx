@@ -29,9 +29,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Initial load - try to fetch current cart if we have a restaurant context
-    // In a real app, we might fetch the most recent cart for the user
-    // For now, we'll rely on the restaurant context from pages
+    const refreshCart = async () => {
+        setLoading(true);
+        try {
+            const response = await api.get<{ cart: Cart }>("/api/v1/cart/current");
+            if (response.ok && response.data) {
+                setCart(response.data.cart);
+            }
+        } catch (err) {
+            console.error("Failed to refresh cart:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        refreshCart();
+    }, [user]);
 
     const addItem = async (
         item: MenuItem,

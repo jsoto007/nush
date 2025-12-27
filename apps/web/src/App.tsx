@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider, useCart } from "./context/CartContext";
 import { Login } from "./pages/Login";
@@ -10,6 +10,10 @@ import { Checkout } from "./pages/Checkout";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { VerifyEmail } from "./pages/VerifyEmail";
+import { Profile } from "./pages/Profile";
+import { OrderHistory } from "./pages/OrderHistory";
+import { AccountSettings } from "./pages/AccountSettings";
+import { AddressBook } from "./pages/AddressBook";
 import { AdminRoute } from "./components/AdminRoute";
 import { OwnerRoute } from "./components/OwnerRoute";
 import { SuperAdminDashboard } from "./pages/admin/SuperAdminDashboard";
@@ -20,7 +24,7 @@ import { StaffManagement } from "./pages/admin/StaffManagement";
 import { InventoryManager } from "./pages/admin/InventoryManager";
 import { RestaurantSettings } from "./pages/admin/RestaurantSettings";
 import { CartSidebar } from "./components/CartSidebar";
-import { User, ShoppingCart, Search } from "lucide-react";
+import { User, ShoppingCart, Search, ShoppingBag, MapPin } from "lucide-react";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -43,6 +47,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const { setIsOpen, cart } = useCart();
+  const navigate = useNavigate();
   const itemCount = cart?.items.length || 0;
 
   return (
@@ -51,7 +56,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-8">
             <h1
-              onClick={() => window.location.href = "/"}
+              onClick={() => navigate("/")}
               className="cursor-pointer text-2xl font-black tracking-tighter"
             >
               NUSH<span className="text-stone-400">.</span>
@@ -80,18 +85,60 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               )}
             </button>
             <div className="h-6 w-px bg-stone-200 mx-2" />
-            <div className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-white p-1 pr-3 shadow-sm">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-sm font-bold text-white uppercase">
-                {user?.name?.charAt(0)}
+
+            {user ? (
+              <div className="group relative">
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-100 bg-white p-1 pr-3 shadow-sm transition-all hover:border-stone-200">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-sm font-bold text-white uppercase">
+                    {user?.name?.charAt(0)}
+                  </div>
+                  <div className="hidden flex-col sm:flex">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Customer</span>
+                    <span className="text-sm font-bold leading-none">{user?.name}</span>
+                  </div>
+                </div>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-56 origin-top-right scale-95 opacity-0 transition-all group-hover:scale-100 group-hover:opacity-100">
+                  <div className="overflow-hidden rounded-2xl border border-stone-100 bg-white p-2 shadow-2xl shadow-stone-200/50">
+                    <button onClick={() => navigate("/profile")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-stone-600 transition hover:bg-stone-50 hover:text-stone-900">
+                      <User size={16} /> Profile
+                    </button>
+                    <button onClick={() => navigate("/orders")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-stone-600 transition hover:bg-stone-50 hover:text-stone-900">
+                      <ShoppingBag size={16} /> Order History
+                    </button>
+                    <button onClick={() => navigate("/address-book")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-stone-600 transition hover:bg-stone-50 hover:text-stone-900">
+                      <MapPin size={16} /> Address Book
+                    </button>
+                    <button onClick={() => navigate("/settings")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-stone-600 transition hover:bg-stone-50 hover:text-stone-900">
+                      <Search size={16} /> Account Settings
+                    </button>
+                    <div className="my-2 h-px bg-stone-100" />
+                    <button
+                      onClick={logout}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold text-red-400 transition hover:bg-red-50 hover:text-red-500"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
               </div>
-              <span className="text-sm font-bold hidden sm:inline">{user?.name}</span>
-              <button
-                onClick={logout}
-                className="ml-2 text-xs font-bold text-stone-400 hover:text-red-500 transition"
-              >
-                Logout
-              </button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate("/login")}
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-stone-900 transition hover:bg-stone-100"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => navigate("/register")}
+                  className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-stone-800"
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -117,29 +164,63 @@ export const App: React.FC = () => {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <RestaurantList />
-                  </Layout>
-                </ProtectedRoute>
+                <Layout>
+                  <RestaurantList />
+                </Layout>
               }
             />
             <Route
               path="/restaurant/:id"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <RestaurantDetails />
-                  </Layout>
-                </ProtectedRoute>
+                <Layout>
+                  <RestaurantDetails />
+                </Layout>
               }
             />
             <Route
               path="/checkout"
               element={
+                <Layout>
+                  <Checkout />
+                </Layout>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
                 <ProtectedRoute>
                   <Layout>
-                    <Checkout />
+                    <Profile />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <OrderHistory />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AccountSettings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/address-book"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AddressBook />
                   </Layout>
                 </ProtectedRoute>
               }

@@ -11,6 +11,8 @@ from ..models import CustomerProfile, Order, RestaurantLike, User, UserRoleType
 from .response import error, ok
 from .serializers import user_summary
 from .validators import get_json
+from .guest_cart import read_guest_cart_id
+from .carts import merge_guest_cart_into_user
 from ..services.email_service import EmailService
 import secrets
 
@@ -53,6 +55,11 @@ def register():
 
     login_user(user)
 
+    # Merge guest cart if exists
+    guest_cart_id = read_guest_cart_id()
+    if guest_cart_id:
+        merge_guest_cart_into_user(guest_cart_id, user.id)
+
     # Email verification
     token = secrets.token_urlsafe(32)
     user.verification_token = token
@@ -94,6 +101,12 @@ def login():
     user.last_login_at = datetime.now(tz=timezone.utc)
     db.session.commit()
     login_user(user)
+
+    # Merge guest cart if exists
+    guest_cart_id = read_guest_cart_id()
+    if guest_cart_id:
+        merge_guest_cart_into_user(guest_cart_id, user.id)
+
     return ok({"user": user_summary(user)})
 
 
@@ -191,3 +204,22 @@ def me():
             "counts": {"orders": orders_count, "likes": likes_count},
         }
     )
+
+
+@auth_bp.patch("/me")
+@require_auth
+def update_me():
+    user = get_current_user()
+    payload, err = get_json(request)
+    if err:
+        return err
+
+    if "name" in payload:
+        name = (payload.get("name") or "").strip()
+        if name:
+            user.name = name
+    if "phone" in payload:
+        user.phone = payload.get("phone")
+
+    db.session.commit()
+    return ok({"user": user_summary(user)})
