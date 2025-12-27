@@ -1,0 +1,14 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+  <h2>New account created</h2>
+  <p>A new customer account was created in Nush.</p>
+  <ul>
+    <li><strong>Name:</strong> {{ user.name }}</li>
+    <li><strong>Email:</strong> {{ user.email }}</li>
+    {% if user.phone %}
+    <li><strong>Phone:</strong> {{ user.phone }}</li>
+    {% endif %}
+  </ul>
+  <p>If this account looks unexpected, review it in the admin dashboard.</p>
+{% endblock %}

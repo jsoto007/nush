@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>{{ subject }}</h2>
+<p>Hi {{ user.name }},</p>
+<div style="margin: 32px 0;">
+    {{ message|safe }}
+</div>
+
+<a href="{{ frontend_url }}/browse" class="button">Browse Restaurants</a>
+
+<p style="margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: center;">
+    You are receiving this because you opted in to marketing emails.
+    To stop receiving these, <a href="{{ frontend_url }}/unsubscribe"
+        style="color: #94a3b8; text-decoration: underline;">unsubscribe here</a>.
+</p>
+{% endblock %}

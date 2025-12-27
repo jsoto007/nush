@@ -7,6 +7,9 @@ import { Register } from "./pages/Register";
 import { RestaurantList } from "./pages/RestaurantList";
 import { RestaurantDetails } from "./pages/RestaurantDetails";
 import { Checkout } from "./pages/Checkout";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
+import { VerifyEmail } from "./pages/VerifyEmail";
 import { AdminRoute } from "./components/AdminRoute";
 import { OwnerRoute } from "./components/OwnerRoute";
 import { SuperAdminDashboard } from "./pages/admin/SuperAdminDashboard";
@@ -108,6 +111,9 @@ export const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route
               path="/"
               element={

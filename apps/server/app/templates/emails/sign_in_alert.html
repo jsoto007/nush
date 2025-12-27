@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>New Sign-In Alert</h2>
+<p>Hi {{ user.name }},</p>
+<p>Your account was just signed into from a new device or location.</p>
+
+<div style="margin: 32px 0; background-color: #f8fafc; border-radius: 8px; padding: 24px;">
+    <p style="margin: 0; color: #64748b;">IP Address: <strong>{{ ip_address }}</strong></p>
+    <p style="margin: 8px 0 0 0; color: #64748b;">Device: <strong>{{ user_agent }}</strong></p>
+</div>
+
+<p>If this was you, you can safely ignore this email. If not, please change your password immediately and contact
+    support.</p>
+
+<a href="{{ frontend_url }}/settings/security" class="button">Review Security Settings</a>
+{% endblock %}

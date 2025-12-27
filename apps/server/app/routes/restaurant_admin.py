@@ -1,4 +1,6 @@
 from flask import Blueprint, request
+import os
+from ..services.email_service import EmailService
 
 from ..auth_helpers import get_current_user, require_auth, require_restaurant_access
 from ..extensions import db
@@ -117,6 +119,12 @@ def add_staff(restaurant_id):
         staff = RestaurantStaffUser(user_id=user.id, restaurant_id=restaurant_id, role=role, is_active=True)
         db.session.add(staff)
         db.session.commit()
+
+        # Trigger invitation email
+        restaurant = db.session.get(Restaurant, restaurant_id)
+        invite_url = f"{os.getenv('FRONTEND_URL')}/restaurant-admin/join?restaurant_id={restaurant_id}"
+        EmailService.send_invitation(user.email, restaurant.name, invite_url)
+
         return ok({"staff_id": str(staff.id)}, status=201)
 
     return _add(restaurant_id=restaurant_id)

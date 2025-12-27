@@ -194,6 +194,11 @@ class User(BaseModel):
     role = db.Column(db.Enum(UserRoleType, name="user_role_type"), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     last_login_at = db.Column(db.DateTime(timezone=True))
+    verification_token = db.Column(db.String(128))
+    verification_expires_at = db.Column(db.DateTime(timezone=True))
+    password_reset_token = db.Column(db.String(128))
+    password_reset_expires_at = db.Column(db.DateTime(timezone=True))
+    is_email_verified = db.Column(db.Boolean, nullable=False, default=False)
 
     customer_profile = db.relationship(
         "CustomerProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"

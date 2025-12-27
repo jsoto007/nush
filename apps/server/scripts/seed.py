@@ -258,18 +258,71 @@ def _seed_demo_in_context() -> None:
         )
         db.session.add(promo)
 
-    tier = MembershipTier.query.filter_by(name="Gold").first()
-    if not tier:
-        tier = MembershipTier(
-            name="Gold",
-            description="Gold tier",
-            discount_percent=10,
-            fee_rules={"rate_percent": 0},
-            is_active=True,
-        )
-        db.session.add(tier)
-        db.session.flush()
+    # Create Membership Tiers
+    tiers_data = [
+        {"name": "Bronze", "discount": 0, "fee": 0},
+        {"name": "Silver", "discount": 5, "fee": 0},
+        {"name": "Gold", "discount": 10, "fee": 0},
+        {"name": "Platinum", "discount": 15, "fee": 0},
+    ]
+    
+    tiers = {}
+    for t_data in tiers_data:
+        tier = MembershipTier.query.filter_by(name=t_data["name"]).first()
+        if not tier:
+            tier = MembershipTier(
+                name=t_data["name"],
+                description=f"{t_data['name']} membership tier",
+                discount_percent=t_data["discount"],
+                fee_rules={"rate_percent": t_data["fee"]},
+                is_active=True,
+            )
+            db.session.add(tier)
+            db.session.flush()
+        tiers[t_data["name"]] = tier
 
+    # Create test customers for each tier
+    for tier_name, tier in tiers.items():
+        email = f"{tier_name.lower()}@nush.local"
+        name = f"{tier_name} Customer"
+        test_user = _get_or_create_user(email, UserRoleType.CUSTOMER, f"{tier_name.lower()}123", name=name)
+        
+        # Assign membership if not exists
+        membership = (
+            CustomerMembership.query.filter_by(customer_id=test_user.id)
+            .order_by(CustomerMembership.created_at.desc())
+            .first()
+        )
+        if not membership:
+            membership = CustomerMembership(
+                customer_id=test_user.id,
+                tier_id=tier.id,
+                status=MembershipStatus.ACTIVE,
+                source=MembershipSource.PAID,
+                started_at=datetime.now(tz=timezone.utc),
+            )
+            db.session.add(membership)
+            db.session.flush()
+
+        if not membership.receipts:
+            db.session.add(
+                MembershipReceipt(
+                    membership=membership,
+                    customer_id=test_user.id,
+                    amount_cents=999,
+                    status=ChargeStatus.SUCCEEDED,
+                    provider="mock",
+                    issued_at=datetime.now(tz=timezone.utc),
+                    period_start=datetime.now(tz=timezone.utc),
+                    period_end=datetime.now(tz=timezone.utc),
+                )
+            )
+
+    # Keep compatibility with existing tests
+    customer = _get_or_create_user(
+        "customer@nush.local", UserRoleType.CUSTOMER, "customer123", name="Customer User"
+    )
+    gold_tier = tiers["Gold"]
     membership = (
         CustomerMembership.query.filter_by(customer_id=customer.id)
         .order_by(CustomerMembership.created_at.desc())
@@ -278,27 +331,13 @@ def _seed_demo_in_context() -> None:
     if not membership:
         membership = CustomerMembership(
             customer_id=customer.id,
-            tier_id=tier.id,
+            tier_id=gold_tier.id,
             status=MembershipStatus.ACTIVE,
             source=MembershipSource.PAID,
             started_at=datetime.now(tz=timezone.utc),
         )
         db.session.add(membership)
         db.session.flush()
-
-    if not membership.receipts:
-        db.session.add(
-            MembershipReceipt(
-                membership=membership,
-                customer_id=customer.id,
-                amount_cents=999,
-                status=ChargeStatus.SUCCEEDED,
-                provider="mock",
-                issued_at=datetime.now(tz=timezone.utc),
-                period_start=datetime.now(tz=timezone.utc),
-                period_end=datetime.now(tz=timezone.utc),
-            )
-        )
 
     db.session.commit()
 

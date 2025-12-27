@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, request
 from sqlalchemy import func
@@ -11,6 +11,8 @@ from ..models import CustomerProfile, Order, RestaurantLike, User, UserRoleType
 from .response import error, ok
 from .serializers import user_summary
 from .validators import get_json
+from ..services.email_service import EmailService
+import secrets
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -50,6 +52,15 @@ def register():
         return error("CONFLICT", "Email already registered", {"email": "exists"}, status=409)
 
     login_user(user)
+
+    # Email verification
+    token = secrets.token_urlsafe(32)
+    user.verification_token = token
+    user.verification_expires_at = datetime.now(tz=timezone.utc).replace(microsecond=0) # Simple expiry logic could be added
+    db.session.commit()
+    EmailService.send_verification_email(user, token)
+    EmailService.send_internal_account_notification(user)
+
     return ok({"user": user_summary(user)}, status=201)
 
 
@@ -75,6 +86,11 @@ def login():
     if not user.is_active:
         return error("FORBIDDEN", "User is inactive", status=403)
 
+    # Login alert (basic check - could be improved with IP/UA history)
+    ip_address = request.remote_addr
+    user_agent = request.headers.get("User-Agent")
+    EmailService.send_login_alert(user, ip_address, user_agent)
+
     user.last_login_at = datetime.now(tz=timezone.utc)
     db.session.commit()
     login_user(user)
@@ -85,6 +101,75 @@ def login():
 def logout():
     logout_user()
     return ok({"logged_out": True})
+
+
+@auth_bp.post("/forgot-password")
+@limiter.limit("5/minute")
+def forgot_password():
+    payload, err = get_json(request)
+    if err:
+        return err
+    email = normalize_lower(payload.get("email"))
+    if not email:
+        return error("VALIDATION_ERROR", "email is required", {"email": "required"})
+    
+    user = db.session.query(User).filter(func.lower(User.email) == email).first()
+    if user:
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        db.session.commit()
+        EmailService.send_password_reset(user, token)
+        
+    return ok({"message": "If an account exists, a reset link has been sent."})
+
+
+@auth_bp.post("/reset-password")
+@limiter.limit("5/minute")
+def reset_password():
+    payload, err = get_json(request)
+    if err:
+        return err
+    token = payload.get("token")
+    new_password = payload.get("password")
+    if not token or not new_password:
+        return error("VALIDATION_ERROR", "token and password are required")
+    
+    user = db.session.query(User).filter(
+        User.password_reset_token == token,
+        User.password_reset_expires_at > datetime.now(tz=timezone.utc)
+    ).first()
+    
+    if not user:
+        return error("VALIDATION_ERROR", "Invalid or expired token")
+    
+    user.set_password(new_password)
+    user.password_reset_token = None
+    user.password_reset_expires_at = None
+    db.session.commit()
+    EmailService.send_password_changed(user)
+    
+    return ok({"message": "Password updated successfully."})
+
+
+@auth_bp.post("/verify-email")
+def verify_email():
+    payload, err = get_json(request)
+    if err:
+        return err
+    token = payload.get("token")
+    if not token:
+        return error("VALIDATION_ERROR", "token is required")
+    
+    user = db.session.query(User).filter_by(verification_token=token).first()
+    if not user:
+        return error("VALIDATION_ERROR", "Invalid verification link")
+    
+    user.is_email_verified = True
+    user.verification_token = None
+    db.session.commit()
+    
+    return ok({"message": "Email verified successfully."})
 
 
 @auth_bp.get("/me")

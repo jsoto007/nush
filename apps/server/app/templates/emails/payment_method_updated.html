@@ -1,0 +1,11 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>Payment Method Updated</h2>
+<p>Hi {{ user.name or "there" }},</p>
+<p>Your payment method was updated{% if brand or last4 %} to {{ brand or "Card" }} ending in {{ last4 or "****" }}{% endif %}.</p>
+{% if exp_month and exp_year %}
+<p>Expiration: {{ "%02d"|format(exp_month) }}/{{ exp_year }}</p>
+{% endif %}
+<a href="{{ frontend_url }}/settings/billing" class="button">Manage Payment Methods</a>
+{% endblock %}

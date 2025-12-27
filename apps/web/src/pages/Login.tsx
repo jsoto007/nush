@@ -1,7 +1,6 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { LogIn } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 export const Login: React.FC = () => {
     const { login } = useAuth();
@@ -27,55 +26,67 @@ export const Login: React.FC = () => {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4">
-            <div className="w-full max-w-md rounded-3xl border border-stone-200 bg-white p-8 shadow-xl shadow-stone-200/40">
-                <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900 text-white">
-                        <LogIn size={24} />
-                    </div>
-                    <h1 className="text-2xl font-semibold text-stone-900">Welcome back</h1>
-                    <p className="mt-2 text-stone-500">Sign in to your account to continue</p>
+            <div className="w-full max-w-md rounded-[2.5rem] border border-stone-100 bg-white p-10 shadow-2xl shadow-stone-200/50">
+                <div className="mb-10 text-center">
+                    <h1 className="text-2xl font-black tracking-tighter text-stone-900 mb-8">
+                        NUSH<span className="text-stone-400">.</span>
+                    </h1>
+                    <h2 className="text-3xl font-black tracking-tighter text-stone-900">Welcome back</h2>
+                    <p className="mt-3 text-sm font-medium text-stone-500">Sign in to your account to continue</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-stone-700">Email Address</label>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <label className="ml-1 text-sm font-bold text-stone-900">Email Address</label>
                         <input
                             type="email"
                             required
-                            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-3 text-sm transition focus:border-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                            className="w-full rounded-2xl border-none bg-stone-100 px-5 py-4 text-sm font-bold text-stone-900 transition-all placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900"
                             placeholder="you@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-stone-700">Password</label>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                            <label className="text-sm font-bold text-stone-900">Password</label>
+                            <Link
+                                to="/forgot-password"
+                                className="text-xs font-bold text-stone-400 transition hover:text-stone-900"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
                         <input
                             type="password"
                             required
-                            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-3 text-sm transition focus:border-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                            className="w-full rounded-2xl border-none bg-stone-100 px-5 py-4 text-sm font-bold text-stone-900 transition-all placeholder:text-stone-400 focus:bg-white focus:ring-2 focus:ring-stone-900"
                             placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
 
-                    {error && <div className="text-sm text-red-600">{error}</div>}
+                    {error && (
+                        <div className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-600 ring-1 ring-red-100">
+                            {error}
+                        </div>
+                    )}
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full rounded-xl bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-50"
+                        className="w-full rounded-2xl bg-stone-900 py-4 text-sm font-bold text-white shadow-lg shadow-stone-900/10 transition-all hover:bg-stone-800 hover:shadow-stone-900/20 active:scale-[0.98] disabled:opacity-50"
                     >
                         {loading ? "Signing in..." : "Sign In"}
                     </button>
                 </form>
 
-                <p className="mt-6 text-center text-sm text-stone-500">
+                <p className="mt-8 text-center text-sm font-medium text-stone-500">
                     Don't have an account?{" "}
-                    <a href="/register" className="font-semibold text-stone-900 hover:underline">
+                    <Link to="/register" className="font-bold text-stone-900 hover:underline">
                         Create one
-                    </a>
+                    </Link>
                 </p>
             </div>
         </div>

@@ -1,0 +1,16 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>Order Update</h2>
+<p>Hi {{ user.name }},</p>
+<p>Your order <strong>#{{ order.id|truncate(8, True, '') }}</strong> is now <strong>{{ order.status.value|replace('_', '
+        ')|title }}</strong>.</p>
+
+{% if order.status.value == 'ready' %}
+<p>Your order is ready for pickup/delivery!</p>
+{% elif order.status.value == 'completed' %}
+<p>Enjoy your meal! We hope to see you again soon.</p>
+{% endif %}
+
+<a href="{{ frontend_url }}/orders/{{ order.id }}" class="button">View Order Details</a>
+{% endblock %}

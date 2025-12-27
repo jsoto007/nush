@@ -34,3 +34,19 @@ def validate_promo():
         discount = apply_promo(cart, promo)
     valid = discount > 0 or promo.is_active
     return ok({"valid": valid, "discount_cents": discount})
+
+
+@promotions_bp.post("/test-email")
+def test_marketing_email():
+    from ..auth_helpers import get_current_user
+    from ..services.email_service import EmailService
+    user = get_current_user()
+    if not user:
+        return error("AUTH_REQUIRED", "Please login", status=401)
+    
+    EmailService.send_marketing_email(
+        user, 
+        "Don't miss out on these deals!", 
+        "<p>We have some great new restaurants for you to try this weekend!</p>"
+    )
+    return ok({"message": "Test email sent."})

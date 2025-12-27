@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import secrets
+import os
 
 from flask import Blueprint, current_app, request, session
 
@@ -25,7 +26,8 @@ from ..models import (
     ChargeStatus,
 )
 from ..services.cart_totals import apply_promo, compute_cart_totals
-from ..services.stripe_client import create_payment_intent
+from ..services.stripe_client import create_payment_intent, create_checkout_session
+from ..services.email_service import EmailService
 from .guest_cart import read_guest_cart_id
 from .response import error, ok
 from .serializers import order_summary
@@ -162,6 +164,92 @@ def checkout_create_intent():
     return ok({"client_secret": intent.client_secret, "order_id": str(order.id)})
 
 
+@orders_bp.post("/checkout/create-session")
+@require_auth
+def checkout_create_session_route():
+    payload, err = get_json(request)
+    if err:
+        return err
+    cart_id, err = parse_uuid(payload.get("cart_id"), "cart_id")
+    if err:
+        return err
+    user = get_current_user()
+    cart, err = _load_cart_for_user(cart_id, user)
+    if err:
+        return err
+    if not cart.items:
+        return error("VALIDATION_ERROR", "Cart is empty", {"cart_id": "empty"})
+
+    totals = compute_cart_totals(cart)
+    
+    # Create the order in PENDING status
+    order = Order(
+        customer_id=user.id,
+        restaurant_id=cart.restaurant_id,
+        order_type=cart.order_type,
+        status=OrderStatus.CREATED,
+        subtotal_cents=totals["subtotal_cents"],
+        tax_cents=totals["tax_cents"],
+        fee_cents=totals["fee_cents"],
+        discount_cents=totals["discount_cents"],
+        total_cents=totals["total_cents"],
+        promo_id=cart.promo_id,
+        membership_id=cart.membership_id,
+    )
+    db.session.add(order)
+    db.session.flush()
+
+    line_items = []
+    for cart_item in cart.items:
+        line_items.append({
+            "price_data": {
+                "currency": "usd",
+                "product_data": {
+                    "name": cart_item.name_snapshot,
+                },
+                "unit_amount": cart_item.base_price_cents + sum(o.price_delta_cents for o in cart_item.options),
+            },
+            "quantity": cart_item.quantity,
+        })
+    
+    # Add tax/fee as line items if Stripe tax is not used
+    if totals["tax_cents"] > 0:
+        line_items.append({
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Tax"},
+                "unit_amount": totals["tax_cents"],
+            },
+            "quantity": 1,
+        })
+    if totals["fee_cents"] > 0:
+        line_items.append({
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Service Fee"},
+                "unit_amount": totals["fee_cents"],
+            },
+            "quantity": 1,
+        })
+
+    success_url = f"{os.getenv('FRONTEND_URL')}/checkout/success?order_id={order.id}"
+    cancel_url = f"{os.getenv('FRONTEND_URL')}/checkout/cancel?order_id={order.id}"
+
+    session = create_checkout_session(
+        line_items=line_items,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={"order_id": str(order.id)},
+        customer_email=user.email,
+    )
+
+    if not session:
+        return error("INTERNAL_ERROR", "Could not create Stripe session")
+
+    db.session.commit()
+    return ok({"checkout_url": session.url, "order_id": str(order.id)})
+
+
 @orders_bp.post("/checkout/confirm")
 @require_auth
 def checkout_confirm():
@@ -181,6 +269,7 @@ def checkout_confirm():
     totals = compute_cart_totals(cart)
     order_id = session.pop("pending_order_id", None)
     order = db.session.get(Order, order_id) if order_id else None
+    should_email = True
     if not order:
         order = Order(
             customer_id=user.id,
@@ -198,6 +287,7 @@ def checkout_confirm():
         db.session.add(order)
         db.session.flush()
     else:
+        should_email = order.status != OrderStatus.CONFIRMED
         order.status = OrderStatus.CONFIRMED
         order.subtotal_cents = totals["subtotal_cents"]
         order.tax_cents = totals["tax_cents"]
@@ -328,6 +418,8 @@ def checkout_confirm():
     cart.total_cents = 0
 
     db.session.commit()
+    if should_email:
+        EmailService.send_order_confirmation(user, order)
     return ok({"order": order_summary(order)})
 
 
@@ -424,4 +516,7 @@ def update_order_status(order_id):
     )
     order.status = to_status
     db.session.commit()
+    
+    # Trigger email notification
+    EmailService.send_status_update(order.customer, order)
     return ok({"order": order_summary(order)})

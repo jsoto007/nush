@@ -11,6 +11,7 @@ from .promotions import promotions_bp
 from .restaurant_admin import restaurant_admin_bp
 from .restaurants import restaurants_bp
 from .me import me_bp
+from .webhooks import webhooks_bp
 
 
 api_bp = Blueprint("api", __name__)
@@ -26,6 +27,7 @@ api_bp.register_blueprint(receipts_bp)
 api_bp.register_blueprint(admin_bp)
 api_bp.register_blueprint(restaurant_admin_bp)
 api_bp.register_blueprint(me_bp)
+api_bp.register_blueprint(webhooks_bp)
 
 
 @api_bp.get("/health")

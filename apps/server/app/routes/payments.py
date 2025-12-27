@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from ..auth_helpers import get_current_user, require_auth
 from ..extensions import db
 from ..models import MembershipReceipt, OrderReceipt, PaymentMethod
+from ..services.email_service import EmailService
 from .response import error, ok
 from .validators import get_json
 
@@ -53,6 +54,7 @@ def attach_payment_method():
     )
     db.session.add(method)
     db.session.commit()
+    EmailService.send_payment_method_updated(user, method)
     return ok({"payment_method_id": str(method.id)}, status=201)
 
 

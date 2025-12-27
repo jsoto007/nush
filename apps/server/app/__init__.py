@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from flask import Flask
 from werkzeug.exceptions import HTTPException
 
@@ -24,7 +24,7 @@ def _parse_origins(raw_origins: str):
 
 
 def create_app():
-    load_dotenv()
+    load_dotenv(find_dotenv())
     from .config import Config
     app = Flask(__name__)
     app.config.from_object(Config)

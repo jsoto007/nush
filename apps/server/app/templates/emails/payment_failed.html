@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>Payment Failed</h2>
+<p>Hi {{ user.name }},</p>
+<p>We're sorry, but the payment for your order <strong>#{{ order.id|truncate(8, True, '') }}</strong> could not be
+    processed.</p>
+
+<p>Please update your payment method or try again to ensure your order can be completed.</p>
+
+<div
+    style="margin: 32px 0; background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 24px; color: #b91c1c;">
+    <strong>Error:</strong> {{ error_message or "Your transaction was declined." }}
+</div>
+
+<a href="{{ frontend_url }}/checkout?order_id={{ order.id }}" class="button">Try Again</a>
+{% endblock %}

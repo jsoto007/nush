@@ -1,0 +1,14 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>Join our Team</h2>
+<p>You've been invited to join <strong>{{ restaurant_name }}</strong> on Nush.</p>
+
+<p>Click the button below to accept the invitation and set up your account.</p>
+
+<a href="{{ invite_url }}" class="button">Accept Invitation</a>
+
+<p style="margin-top: 32px; font-size: 14px; color: #64748b;">
+    If you weren't expecting this invitation, you can ignore this email.
+</p>
+{% endblock %}

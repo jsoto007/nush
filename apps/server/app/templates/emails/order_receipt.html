@@ -1,0 +1,45 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<h2>Order Confirmation</h2>
+<p>Hi {{ user.name }},</p>
+<p>Thank you for your order! We've received it and are getting it ready.</p>
+
+<div style="margin: 32px 0; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px;">
+    <h3 style="margin-top: 0;">Order #{{ order.id|truncate(8, True, '') }}</h3>
+    <p><strong>Status:</strong> {{ order.status.value|title }}</p>
+    <p><strong>Date:</strong> {{ order.created_at.strftime('%B %d, %Y at %H:%M') }}</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+        <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0;">
+                <th style="text-align: left; padding: 8px 0;">Item</th>
+                <th style="text-align: right; padding: 8px 0;">Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items %}
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 0;">
+                    {{ item.quantity }}x {{ item.name_snapshot }}
+                    {% if item.options %}
+                    <br><small style="color: #64748b;">{{ item.options|map(attribute='name_snapshot')|join(', ')
+                        }}</small>
+                    {% endif %}
+                </td>
+                <td style="text-align: right; padding: 12px 0;">${{ "%.2f"|format(item.total_price_cents / 100) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td style="padding-top: 16px; font-weight: 600;">Total</td>
+                <td style="padding-top: 16px; text-align: right; font-weight: 600;">${{ "%.2f"|format(order.total_cents
+                    / 100) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<a href="{{ frontend_url }}/orders/{{ order.id }}" class="button">Track Your Order</a>
+{% endblock %}
